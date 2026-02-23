@@ -42,31 +42,37 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Get make.com webhook URL from environment variable
-    const makeComWebhookUrl = "https://hook.eu2.make.com/7afh5k1xkl5sv305uwrgkvxdsqu1x6el";
+    // Get make.com webhook URL from environment variable (or fallback for local/dev)
+    const makeComWebhookUrl =
+      process.env.MAKE_COM_KEYWORD_RESEARCH_WEBHOOK_URL ||
+      "https://hook.eu2.make.com/7afh5k1xkl5sv305uwrgkvxdsqu1x6el";
 
     if (makeComWebhookUrl) {
       // Prepare form data for make.com API (form-urlencoded)
       const params = new URLSearchParams();
-      params.append('id', keywordRecord.id);
-      params.append('website_url', websiteUrl || '');
-      params.append('topic', topic || '');
-      params.append('description', description);
-      params.append('goal', goal);
-      
-      // Fire-and-forget API call to make.com (don't await the response)
-      axios.post(makeComWebhookUrl, params.toString(), {
-        headers: { 
-          'Content-Type': 'application/x-www-form-urlencoded' 
-        },
-        timeout: 5000 // 5 second timeout
-      }).then(() => {
+      params.append("id", keywordRecord.id);
+      params.append("website_url", websiteUrl || "");
+      params.append("topic", topic || "");
+      params.append("description", description);
+      params.append("goal", goal);
+
+      // Must await on Vercel: serverless functions terminate after response;
+      // fire-and-forget would often never complete in production.
+      try {
+        await axios.post(makeComWebhookUrl, params.toString(), {
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          timeout: 10000, // 10s for production network latency
+        });
         console.log(`✅ Successfully sent keyword research request to make.com for id ${keywordRecord.id}`);
-      }).catch((error) => {
-        console.error(`❌ Make.com API call failed for keyword research ${keywordRecord.id}:`, error.message);
-      });
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        console.error(`❌ Make.com API call failed for keyword research ${keywordRecord.id}:`, msg);
+        // Still return success — record is created; Make.com can be retried separately if needed
+      }
     } else {
-      console.warn('⚠️ MAKE_COM_KEYWORD_RESEARCH_WEBHOOK_URL not configured. Skipping make.com webhook call.');
+      console.warn("⚠️ MAKE_COM_KEYWORD_RESEARCH_WEBHOOK_URL not configured. Skipping make.com webhook call.");
     }
 
     return NextResponse.json({
