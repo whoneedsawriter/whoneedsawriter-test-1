@@ -127,7 +127,7 @@ const KeywordResearch: React.FC = () => {
         } else {
           setKeywordResearchResult(2);
         }
-      }, 10000); // 3 minutes - adjust as needed
+      }, 300000); // 5 minutes - adjust as needed
 
     } catch (error) {
       console.error('Error generating keyword research:', error);
