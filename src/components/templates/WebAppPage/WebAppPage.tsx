@@ -70,6 +70,11 @@ const GenerationHistoryComponent = dynamic(
   { loading: () => <Spinner color="brand.500" /> }
 );
 
+const KeywordDetailsComponent = dynamic(
+  () => import("@/components/pages/KeywordDetails/KeywordDetails").then((mod) => mod.default),
+  { loading: () => <Spinner color="brand.500" /> }
+);
+
 type WebAppPageProps = {
   currentPage: Routes;
 };
@@ -162,6 +167,11 @@ const WebAppPageContent = ({ currentPage }: WebAppPageProps) => {
               {currentPage === Routes.generationHistory && (
                 <Center w="100%" flexDir="column">
                   <GenerationHistoryComponent />
+                </Center>
+              )}
+              {currentPage === Routes.keywordDetails && (
+                <Center w="100%" flexDir="column">
+                  <KeywordDetailsComponent />
                 </Center>
               )}
           </Flex>

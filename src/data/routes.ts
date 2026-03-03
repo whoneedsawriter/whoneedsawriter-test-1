@@ -17,4 +17,5 @@ export enum Routes {
   pricing = "/pricing",
   keywordresearch = "/keyword-research",
   generationHistory = "/generation-history",
+  keywordDetails = "/keyword-details",
 }

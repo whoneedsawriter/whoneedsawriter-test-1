@@ -14,11 +14,21 @@ import {
   TabPanels,
   TabPanel,
   Box,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalCloseButton,
+  List,
+  ListItem,
 } from "@chakra-ui/react";
 import {
   TbArrowDown,
   TbArrowUp,
   TbDots,
+  TbEye,
+  TbTrash,
 } from "react-icons/tb";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -88,7 +98,141 @@ type KeywordRecord = {
   seedKeyword: string | null;
   goal: string | null;
   json: string | null;
+  status: number;
   createdAt: string;
+};
+
+function getKeywordsFromJson(json: string | null): string[] {
+  if (!json) return [];
+  try {
+    const parsed: unknown = JSON.parse(json);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((x): x is string => typeof x === "string");
+    }
+    if (parsed && typeof parsed === "object") {
+      const o = parsed as Record<string, unknown>;
+      if (Array.isArray(o.keywords)) {
+        return o.keywords.filter((x): x is string => typeof x === "string");
+      }
+      if (Array.isArray(o.data)) {
+        return o.data.filter((x): x is string => typeof x === "string");
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
+type ViewKeywordsModalProps = {
+  record: KeywordRecord | null;
+  isOpen: boolean;
+  onClose: () => void;
+};
+
+const ViewKeywordsModal: React.FC<ViewKeywordsModalProps> = ({
+  record,
+  isOpen,
+  onClose,
+}) => {
+  const keywords = React.useMemo(
+    () => getKeywordsFromJson(record?.json ?? null),
+    [record?.json]
+  );
+  const topicLabel = record
+    ? record.seedKeyword || record.website_url || "—"
+    : "—";
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} size="lg" isCentered>
+      <ModalOverlay />
+      <ModalContent>
+        <ModalHeader>Keywords</ModalHeader>
+        <ModalCloseButton />
+        <ModalBody pb={6}>
+          <Text fontSize="sm" color="gray.600" mb={3}>
+            Topic: <strong>{topicLabel}</strong>
+          </Text>
+          {keywords.length === 0 ? (
+            <Text color="gray.500">No keywords to display.</Text>
+          ) : (
+            <List spacing={2} maxH="400px" overflowY="auto">
+              {keywords.map((kw, i) => (
+                <ListItem key={i} display="flex" alignItems="center" gap={2}>
+                  <Box w="6px" h="6px" borderRadius="full" bg="gray.400" flexShrink={0} />
+                  <Text fontSize="sm">{kw}</Text>
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </ModalBody>
+      </ModalContent>
+    </Modal>
+  );
+};
+
+type DeleteKeywordDialogProps = {
+  record: KeywordRecord | undefined;
+  isOpen: boolean;
+  onClose: () => void;
+};
+
+const DeleteKeywordDialog: React.FC<DeleteKeywordDialogProps> = ({
+  record,
+  isOpen,
+  onClose,
+}) => {
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/keyword-research/${id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to delete");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast.success("Topic deleted successfully");
+      queryClient.invalidateQueries({ queryKey: ["keyword-history"] });
+      onClose();
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Error deleting topic");
+    },
+  });
+
+  return (
+    <AlertDialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete topic?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will permanently delete this keyword generation and its data.
+            Topic: <strong>{record?.seedKeyword || record?.website_url || "—"}</strong>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => {
+              e.preventDefault();
+              if (record?.id) deleteMutation.mutate(record.id);
+            }}
+            disabled={deleteMutation.isPending}
+          >
+            {deleteMutation.isPending ? "Deleting..." : "Delete"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
 };
 
 const GenerationHistory: React.FC = () => {
@@ -363,11 +507,22 @@ const GenerationHistory: React.FC = () => {
       id: "status",
       header: "Status",
       cell: ({ row }: { row: Row<KeywordRecord> }) => {
-        const status = row.original.json ? "Completed" : "In progress";
-        const color = row.original.json ? "green.500" : "yellow.500";
+        const statusCode = row.original.status;
+        const statusLabel =
+          statusCode === 1
+            ? "Completed"
+            : statusCode === 2
+            ? "Failed"
+            : "In progress";
+        const color =
+          statusCode === 1
+            ? "green.500"
+            : statusCode === 2
+            ? "red.500"
+            : "blue.500";
         return (
           <Text color={color} fontWeight="medium">
-            {status}
+            {statusLabel}
           </Text>
         );
       },
@@ -375,7 +530,9 @@ const GenerationHistory: React.FC = () => {
     {
       id: "actions",
       enableHiding: false,
-      cell: () => {
+      cell: ({ row }: { row: Row<KeywordRecord> }) => {
+        const record = row.original;
+        const hasKeywords = !!record.json;
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -386,8 +543,21 @@ const GenerationHistory: React.FC = () => {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem disabled>
-                More actions coming soon
+              <DropdownMenuItem
+                onClick={() =>
+                  router.push(`/keyword-details?id=${record.id}`)
+                }
+                disabled={!hasKeywords}
+              >
+                <TbEye className="mr-2 h-4 w-4" />
+                View Keywords
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setKeywordToDelete(record)}
+                className="text-destructive focus:text-destructive"
+              >
+                <TbTrash className="mr-2 h-4 w-4" />
+                Delete topic
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -404,6 +574,11 @@ const GenerationHistory: React.FC = () => {
   const [keywordColumnVisibility, setKeywordColumnVisibility] =
     React.useState<VisibilityState>({});
   const [keywordRowSelection, setKeywordRowSelection] = React.useState({});
+
+  const [viewKeywordsRecord, setViewKeywordsRecord] =
+    React.useState<KeywordRecord | null>(null);
+  const [keywordToDelete, setKeywordToDelete] =
+    React.useState<KeywordRecord | null>(null);
 
   const keywordTable = useReactTable({
     data: keywords,
@@ -645,6 +820,17 @@ const GenerationHistory: React.FC = () => {
             batch={batchToDelete || undefined}
             isOpen={isDeleteDialogOpen}
             onClose={closeDeleteDialog}
+          />
+
+          <ViewKeywordsModal
+            record={viewKeywordsRecord}
+            isOpen={!!viewKeywordsRecord}
+            onClose={() => setViewKeywordsRecord(null)}
+          />
+          <DeleteKeywordDialog
+            record={keywordToDelete || undefined}
+            isOpen={!!keywordToDelete}
+            onClose={() => setKeywordToDelete(null)}
           />
         </Container>
       </div>
