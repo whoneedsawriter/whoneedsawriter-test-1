@@ -122,7 +122,7 @@ export async function GET() {
             APP_BASE_URL &&
             `${APP_BASE_URL}${Routes.keywordDetails}?id=${record.id}`;
 
-          const text1 = `${count} keywords generation successful.`;
+          const text1 = `${count} keywords are generated on the topic ${record.seedKeyword}.`;
 
           try {
             await sendTransactionalEmail({
