@@ -14,8 +14,63 @@ import { useSidebarDrawer } from "@/app/SidebarDrawerProvider";
 const DashboardHeader = () => {
   const isMobile = useMobile();
   const { user, isLoading, error } = useContext(UserContext) as UserContextType;
-  const totalCredits = ((user as User)?.freeCredits || 0) + ((user as User)?.monthyBalance || 0) + ((user as User)?.lifetimeBalance || 0);
-  
+
+  // Calculate credits using the same logic as Account.tsx
+  const monthlyPlan = user?.monthyPlan ?? 0;
+  const lifetimePlan = user?.lifetimePlan ?? 0;
+
+  const baseFreeCredits = 4; // fixed total free credits
+  const currentFreeCredits = user?.freeCredits ?? baseFreeCredits; // remaining free credits
+
+  const monthlyBalance = user?.monthyBalance ?? 0;
+  const lifetimeBalance = user?.lifetimeBalance ?? 0;
+
+  let headerTotalCredits = 0;
+  let headerRemainingCredits = 0;
+
+  // 1. No paid plans → only free credits
+  if (monthlyPlan === 0 && lifetimePlan === 0) {
+    headerTotalCredits = baseFreeCredits;          // always show full free quota (e.g. 4)
+    headerRemainingCredits = currentFreeCredits;   // remaining free credits (e.g. 3)
+  } else {
+    // 2. Has paid plans → ignore free credits
+    if (monthlyPlan > 0 && lifetimePlan > 0) {
+      // Both monthly and lifetime plans exist
+      if (monthlyBalance > 0 && lifetimeBalance > 0) {
+        // Both have remaining balance → use combined quota
+        headerTotalCredits = monthlyPlan + lifetimePlan;
+        headerRemainingCredits = monthlyBalance + lifetimeBalance;
+      } else if (monthlyBalance > 0) {
+        // Only monthly has remaining balance
+        headerTotalCredits = monthlyPlan;
+        headerRemainingCredits = monthlyBalance;
+      } else if (lifetimeBalance > 0) {
+        // Only lifetime has remaining balance
+        headerTotalCredits = lifetimePlan;
+        headerRemainingCredits = lifetimeBalance;
+      } else {
+        // Both consumed → show monthly quota only (e.g. 0/20)
+        headerTotalCredits = monthlyPlan;
+        headerRemainingCredits = 0;
+      }
+    } else if (monthlyPlan > 0) {
+      // Only monthly plan
+      headerTotalCredits = monthlyPlan;
+      headerRemainingCredits = monthlyBalance;
+    } else {
+      // Only lifetime plan
+      if (lifetimeBalance > 0) {
+        // Some lifetime remaining → show lifetime plan normally
+        headerTotalCredits = lifetimePlan;
+        headerRemainingCredits = lifetimeBalance;
+      } else {
+        // Lifetime balance is 0 → fall back to free credits
+        headerTotalCredits = baseFreeCredits;
+        headerRemainingCredits = currentFreeCredits;
+      }
+    }
+  }
+
   const { onOpen: onPricingPopupOpen } = useContext(PricingPopupContext);
   const buttonColor = useColorModeValue("whiteAlpha.600", "whiteAlpha.600");
   
@@ -50,13 +105,13 @@ const DashboardHeader = () => {
               style={{ minWidth: '36px', width: '36px', height: '36px' }}
             />
           )}
-          <TeamSwitcher />
+          {/* <TeamSwitcher /> */}
           <div className="ml-auto flex items-center space-x-4">
             {/* Credits Section */}
             <div className={`credits-header flex items-center bg-[#151923] rounded-full px-4 py-2 ${isMobile ? 'mr-2' : 'mr-4'} border border-[#ffffff14]`}>
               <span className="text-[#a9b1c3] text-sm mr-2">Credits:</span>
               <span className="text-white font-medium text-sm mr-2">
-                {isLoading ? "..." : totalCredits.toFixed(1)}
+                {isLoading ? "..." : headerRemainingCredits}
               </span>
              
                 <button 
