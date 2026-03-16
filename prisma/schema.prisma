@@ -263,6 +263,25 @@ model userWebsite {
   categories String?
 }
 
+model keywords {
+  id             String    @id @default(cuid())
+  userId         String
+  website_url    String?
+  description    String?  
+  seedKeyword    String?
+  goal           String?
+  json           String?
+  requestProcess Int       @default(0)
+  status         Int       @default(0)
+  createdAt      DateTime  @default(now())
+}
+
+model Plugin {
+  id             String    @id @default(cuid())
+  version        String?
+  createdAt      DateTime  @default(now())
+}
+
 enum WorkspaceRole {
   OWNER
   ADMIN
