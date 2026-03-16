@@ -60,6 +60,21 @@ const ApiKeysComponent = dynamic(
   { loading: () => <Spinner color="brand.500" /> }
 );
 
+const KeywordResearchComponent = dynamic(
+  () => import("@/components/pages/KeywordResearch/KeywordResearch").then((mod) => mod.default),
+  { loading: () => <Spinner color="brand.500" /> }
+);
+
+const GenerationHistoryComponent = dynamic(
+  () => import("@/components/pages/GenerationHistory/GenerationHistory").then((mod) => mod.default),
+  { loading: () => <Spinner color="brand.500" /> }
+);
+
+const KeywordDetailsComponent = dynamic(
+  () => import("@/components/pages/KeywordDetails/KeywordDetails").then((mod) => mod.default),
+  { loading: () => <Spinner color="brand.500" /> }
+);
+
 type WebAppPageProps = {
   currentPage: Routes;
 };
@@ -139,11 +154,26 @@ const WebAppPageContent = ({ currentPage }: WebAppPageProps) => {
                 <BatchComponent />
               </Center>
             )}
-            {currentPage === Routes.apiKeys && (
-              <Center w="100%" flexDir="column">
-                <ApiKeysComponent />
-              </Center>
-            )}  
+              {currentPage === Routes.apiKeys && (
+                <Center w="100%" flexDir="column">
+                  <ApiKeysComponent />
+                </Center>
+              )}  
+              {currentPage === Routes.keywordresearch && (
+                <Center w="100%" flexDir="column">
+                  <KeywordResearchComponent />
+                </Center>
+              )}
+              {currentPage === Routes.generationHistory && (
+                <Center w="100%" flexDir="column">
+                  <GenerationHistoryComponent />
+                </Center>
+              )}
+              {currentPage === Routes.keywordDetails && (
+                <Center w="100%" flexDir="column">
+                  <KeywordDetailsComponent />
+                </Center>
+              )}
           </Flex>
           <PricingPopup isOpen={isPricingPopupOpen} onClose={onPricingPopupClose} />
         </>

@@ -15,4 +15,7 @@ export enum Routes {
   batch = "/batch",
   apiKeys = "/developer/api",
   pricing = "/pricing",
+  keywordresearch = "/keyword-research",
+  generationHistory = "/generation-history",
+  keywordDetails = "/keyword-details",
 }
