@@ -559,9 +559,9 @@ const start25MinLoader = () => {
     };
   }, [isPerspectiveDropdownOpen]);
 
-  // Load saved profile values from user when popup opens
+  // Load saved profile values from user when component mounts or user data changes
   useEffect(() => {
-    if (showPublisherDetailsPopup && user) {
+    if (user) {
       const userWithProfile = user as User & { toneChoice?: string; perspective?: string; description?: string };
       if (userWithProfile.toneChoice) {
         setToneChoice(userWithProfile.toneChoice);
@@ -573,7 +573,7 @@ const start25MinLoader = () => {
         setDescription(userWithProfile.description);
       }
     }
-  }, [showPublisherDetailsPopup, user]);
+  }, [user]);
 
   // Save profile mutation
   const saveProfile = useMutation({
@@ -882,7 +882,7 @@ const start25MinLoader = () => {
 
         {/* Batch Details Section */}
         <VStack align="flex-start" spacing={2} width="100%" mt="16px">
-          <Heading className={`font-normal text-[13px] text-[#7f8aa3]`}>Batch name (optional)</Heading>
+          <label className={`font-normal text-[13px] text-[#7f8aa3]`}>Batch name (optional)</label>
           <input
              placeholder="e.g., March SEO Batch or Client ABC - Pillar Posts"
              defaultValue={batchRef.current}
@@ -894,7 +894,7 @@ const start25MinLoader = () => {
 
         {/* Keywords Section */}
         <VStack align="flex-start" spacing={2} width="100%" data-tour="keyword-input" mt="16px">
-          <Heading className={`font-normal text-[13px] text-[#7f8aa3]`}>Keywords (one per line)</Heading>
+          <label className={`font-normal text-[13px] text-[#7f8aa3]`}>Keywords (one per line)</label>
           <textarea
               className="wtext-sm w-full flex-grow ca text-[13px] placeholder:text-[#7f8aa3] placeholder:text-[13px]"
               placeholder={`ai content tools
@@ -957,7 +957,7 @@ seo content writing tips`}
         {/* Special Instructions (optional) */}
         { selectedModel !== '1a-lite' && (
         <VStack align="flex-start" spacing={2} width="100%" data-tour="keyword-input" mt="16px">
-          <Heading className={`font-normal text-[13px] text-[#7f8aa3]`}>Special Instructions (optional)</Heading>
+          <label className={`font-normal text-[13px] text-[#7f8aa3]`}>Special Instructions (optional)</label>
           <textarea
               className="wtext-sm w-full flex-grow ca text-[13px] placeholder:text-[#7f8aa3] placeholder:text-[13px]"
               placeholder={`Example: Mention my Brand ABCD.com as the most preferred or top ranked option wherever applicable`}
@@ -1146,6 +1146,12 @@ seo content writing tips`}
          <div className="flex flex-wrap gap-3">
            <button
              type="button"
+             onClick={() =>
+              window.open(
+                '/blog/what-is-an-ai-blog-post-generator-2025-explainer',
+                '_blank'
+              )
+            }
              className="w-fit flex items-center gap-2 px-3 py-2 rounded-full border bg-[#1b2232] border-[#ffffff14] hover-gradient"
              style={{ transition: 'background .2s ease, box-shadow .2s ease, border-color .2s ease' }}
            >
@@ -1163,6 +1169,12 @@ seo content writing tips`}
 
            <button
              type="button"
+             onClick={() =>
+              window.open(
+                '/blog/how-ai-written-work-is-detected-a-2025-lab-guide',
+                '_blank'
+              )
+            }
              className="w-fit flex items-center gap-2 px-4 py-2 rounded-full border bg-[#1b2232] border-[#ffffff14] hover-gradient"
              style={{ transition: 'background .2s ease, box-shadow .2s ease, border-color .2s ease' }}
            >
@@ -1178,6 +1190,12 @@ seo content writing tips`}
 
            <button
              type="button"
+             onClick={() =>
+              window.open(
+                '/blog/top-5-benefits-of-ai-writing-tools-in-2025-with-real-roi',
+                '_blank'
+              )
+            }
              className="w-fit flex items-center gap-2 px-4 py-2 rounded-full border bg-[#1b2232] border-[#ffffff14] hover-gradient"
              style={{ transition: 'background .2s ease, box-shadow .2s ease, border-color .2s ease' }}
            >
@@ -1195,6 +1213,12 @@ seo content writing tips`}
 
            <button
              type="button"
+             onClick={() =>
+              window.open(
+                '/blog/how-to-write-high-quality-blog-posts-using-ai-in-2025',
+                '_blank'
+              )
+            }
              className="w-fit flex items-center gap-2 px-4 py-2 rounded-full border bg-[#1b2232] border-[#ffffff14] hover-gradient"
              style={{ transition: 'background .2s ease, box-shadow .2s ease, border-color .2s ease' }}
            >
@@ -1212,6 +1236,12 @@ seo content writing tips`}
 
            <button
              type="button"
+             onClick={() =>
+              window.open(
+                '/blog/ai-vs-human-articles-2025-blind-test-seo-showdown',
+                '_blank'
+              )
+            }
              className="w-fit flex items-center gap-2 px-4 py-2 rounded-full border bg-[#1b2232] border-[#ffffff14] hover-gradient"
              style={{ transition: 'background .2s ease, box-shadow .2s ease, border-color .2s ease' }}
            >
@@ -1226,6 +1256,12 @@ seo content writing tips`}
 
            <button
              type="button"
+             onClick={() =>
+              window.open(
+                '/blog/zerogpt-plus-review-2025-honest-ai-detector-test-verdict',
+                '_blank'
+              )
+            }
              className="w-fit flex items-center gap-2 px-4 py-2 rounded-full border bg-[#1b2232] border-[#ffffff14] hover-gradient"
              style={{ transition: 'background .2s ease, box-shadow .2s ease, border-color .2s ease' }}
            >
