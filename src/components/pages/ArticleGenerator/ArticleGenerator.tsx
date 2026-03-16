@@ -831,6 +831,7 @@ const start25MinLoader = () => {
         {showAdditionalOptions && (selectedModel === '1a-pro' || selectedModel === '1a-core') && (
           <div className="flex flex-wrap gap-4 mt-4 mb-8 p-4 rounded-lg border border-[#ffffff14] bg-[#1b2232]">
             {/* References Checkbox */}
+            { selectedModel === '1a-pro' && (
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -846,7 +847,7 @@ const start25MinLoader = () => {
                 <span className="text-[#eef2f7] font-bold text-xs">References ({references === 'Yes' ? 'Yes' : 'No'})</span>
               </button>
             </div>
-
+            )}
             {/* Publisher Details */}
             <Tooltip label="Helps enhance article" hasArrow>
               <button
