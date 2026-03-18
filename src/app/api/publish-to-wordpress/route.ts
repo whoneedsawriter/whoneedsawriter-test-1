@@ -1,9 +1,18 @@
+import { prismaClient } from '@/prisma/db';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { wordpressSites, title, content, imageUrl, category, author, saveOption, metaTitle, metaDescription, addFeaturedImage, addMetaContent } = body;
+    const { wordpressSites, title, content, imageUrl, category, author, saveOption, scheduleTime, metaTitle, metaDescription, addFeaturedImage, addMetaContent } = body;
+
+    const plugin = await prismaClient.plugin.findFirst({
+      select: {
+        version: true,
+      },
+    });
+
+    console.log('Plugin version: ' + plugin?.version);
 
     const results = await Promise.all(
       wordpressSites.map(async (site: string) => {
@@ -19,7 +28,9 @@ export async function POST(request: Request) {
               image_url: imageUrl,
               category,
               author,
-              status: saveOption === 'draft' ? 'draft' : 'publish',
+              plugin_version: plugin?.version,
+              status: saveOption,
+              schedule_time: scheduleTime,
               meta_title: metaTitle,
               meta_description: metaDescription,
               add_featured_image: addFeaturedImage,
@@ -28,7 +39,14 @@ export async function POST(request: Request) {
           });
 
           if (!response.ok) {
-            throw new Error(`Failed to publish to ${site}`);
+            const errorData = await response.json().catch(() => ({}));
+            
+            // Check for WordPress API error structure
+            if (errorData.code === 'plugin_version_outdated') {
+              throw new Error(errorData.message || 'Plugin version is outdated');
+            } else {
+              throw new Error(errorData.message || `Failed to publish to ${site}`);
+            }
           }
 
           return {
@@ -36,10 +54,11 @@ export async function POST(request: Request) {
             success: true
           };
         } catch (error) {
+          console.error('The error is: ', error);
           return {
             site,
-            success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            message: error instanceof Error ? error.message : 'Unknown error',
+            success: false
           };
         }
       })
@@ -48,9 +67,12 @@ export async function POST(request: Request) {
     const failedSites = results.filter(result => !result.success);
     
     if (failedSites.length > 0) {
+      // Get the error message from failed sites, prioritizing plugin version errors
+      const errorMessage = failedSites[0]?.message || 'Failed to publish';
+      
       return NextResponse.json({
         success: false,
-        message: 'Failed to publish',
+        message: errorMessage,
         failedSites
       }, { status: 500 });
     }
