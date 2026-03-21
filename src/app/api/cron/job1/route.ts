@@ -9,7 +9,7 @@ export const revalidate = 0;
 export async function GET() {
   console.log("🕑 Vercel cron job ran!");
   const now = new Date();
-  const fifteenMinutesAgo = new Date(now.getTime() - 20 * 60 * 1000);
+  const fifteenMinutesAgo = new Date(now.getTime() - 15 * 60 * 1000);
 
   const candidateBatches = await prismaClient.batch.findMany({
     where: {
