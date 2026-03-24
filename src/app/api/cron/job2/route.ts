@@ -120,5 +120,25 @@ export async function GET() {
     }
   }
 
+  // check all artilces with status 0 and 15 minutes old created at and have content
+  const articlesWithContent = await prismaClient.godmodeArticles.findMany({
+    where: {
+      status: 0,
+      createdAt: { lt: new Date(Date.now() - 15 * 60 * 1000) },
+      content: { not: null }
+    }
+  });
+
+  console.log(`Found ${articlesWithContent.length} articles with content and status 0 and 15 minutes old created at`);
+
+  for (const article of articlesWithContent) {
+    console.log(`Processing article ${article.id} and updating status to 1`);
+    await prismaClient.godmodeArticles.update({
+      where: { id: article.id },
+      data: { status: 1 }
+    });
+    console.log(`Updated status to 1 for article ${article.id}`);
+  }
+
   return NextResponse.json({ ok: true });
 } 

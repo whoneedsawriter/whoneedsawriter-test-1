@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/cron/job2",
-      "schedule": "*/2 * * * *"
+      "schedule": "* * * * *"
     }
   ]
 }
