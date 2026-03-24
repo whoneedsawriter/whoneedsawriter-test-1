@@ -120,11 +120,10 @@ export async function GET() {
     }
   }
 
-  // check all artilces with status 0 and 15 minutes old created at and have content
+  // check all artilces with status 0 and have content
   const articlesWithContent = await prismaClient.godmodeArticles.findMany({
     where: {
       status: 0,
-      createdAt: { lt: new Date(Date.now() - 15 * 60 * 1000) },
       content: { not: null }
     }
   });
