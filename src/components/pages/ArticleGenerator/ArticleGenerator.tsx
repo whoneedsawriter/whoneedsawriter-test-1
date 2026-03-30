@@ -274,7 +274,6 @@ const ArticleGenerator: React.FC = () => {
       toast.error("10 Maximum keywords allowed in one batch");
       return;
     }
-  
     setIsProcessingGodmode(true);
     setGodModeLoader(true);
     start25MinLoader(); // 🔥 Start the 25-min loader here
