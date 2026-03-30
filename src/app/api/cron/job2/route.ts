@@ -128,7 +128,7 @@ export async function GET() {
     }
   });
 
-  console.log(`Found ${articlesWithContent.length} articles with content and status 0 and 15 minutes old created at`);
+  console.log(`Found ${articlesWithContent.length} articles with content and status 0`);
 
   for (const article of articlesWithContent) {
     console.log(`Processing article ${article.id} and updating status to 1`);

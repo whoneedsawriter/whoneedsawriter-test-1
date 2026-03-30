@@ -306,7 +306,7 @@ export const SidebarMenuItems: React.FC<MenuProps> = ({
             p={isMobile ? "10px 12px" : "0"}
             borderRadius={isMobile ? "8px" : "0"}
             bg={isMobile && currentPage === Routes.articlegenerator ? "#4da3ff1a" : "transparent"}
-            onClick={() => handleNavigation(Routes.articlegenerator)}
+            onClick={() => window.location.href = '/article-generator'}
           >
             <Flex
               w={isMobile ? "unset" : "44px"}
@@ -321,7 +321,7 @@ export const SidebarMenuItems: React.FC<MenuProps> = ({
             </Flex>
             {isMobile && (
               <Text color="white" fontSize="14px" fontWeight="500" flex="1">
-                Generator
+                Generator 
               </Text>
             )}
             {!isMobile && (
