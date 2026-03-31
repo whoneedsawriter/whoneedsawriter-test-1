@@ -262,10 +262,19 @@ const ArticleGenerator: React.FC = () => {
       onPricingPopupOpen();
       return;
     }
-    if (keywords.length*2 > balance.credits) {
-      toast.error("Limit Exceeded. Please shorten your list or buy more credits.");
+    if( selectedModel === '1a-lite' && keywords.length * 0.1 > balance.credits){
+      toast.error("Limit Exceeded. Please shorten your list or buy more credits. ");
       return;
     }
+    if( selectedModel === '1a-core' && keywords.length * 1 > balance.credits){
+      toast.error("Limit Exceeded. Please shorten your list or buy more credits. ");
+      return;
+    }
+    if( selectedModel === '1a-pro' && keywords.length * 2 > balance.credits){
+      toast.error("Limit Exceeded. Please shorten your list or buy more credits. ");
+      return;
+    }
+
     if (keywords.length === 0) {
       toast.error("Please enter Keywords");
       return;
@@ -323,7 +332,7 @@ const ArticleGenerator: React.FC = () => {
       setIsProcessingGodmode(false);
       setGodModeLoader(false);
       if (timerRef.current) {
-        clearInterval(timerRef.current);
+           clearInterval(timerRef.current);
       }
     }
   };
