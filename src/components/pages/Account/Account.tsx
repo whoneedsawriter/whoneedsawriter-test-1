@@ -326,8 +326,8 @@ export const Account = () => {
                         <div className="space-y-1">
                           {/* Credits display */}
                           <div className="text-left">
-                            <div className="text-lg font-bold">
-                              {usedCredits}/{totalCredits} credits used ({usagePercentage}%)
+                              <div className="text-lg font-bold">
+                              {usedCredits.toFixed(1)}/{totalCredits} credits used ({usagePercentage}%)
                             </div>
                           </div>
                           
