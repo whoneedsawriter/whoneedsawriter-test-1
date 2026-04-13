@@ -160,8 +160,12 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
         
-        const currentBalance = user[balance_type as keyof typeof user] as number;
-        const newBalance = parseFloat((currentBalance - totalCreditCost).toFixed(1));
+        const currentBalance = Number(
+          user[balance_type as keyof typeof user] as unknown
+        );
+        const newBalanceRaw = (Number.isFinite(currentBalance) ? currentBalance : 0) - totalCreditCost;
+        const newBalanceRounded = parseFloat(newBalanceRaw.toFixed(1));
+        const newBalance = Object.is(Math.max(0, newBalanceRounded), -0) ? 0 : Math.max(0, newBalanceRounded);
         
         await prismaClient.user.update({
           where: { id: userId },
