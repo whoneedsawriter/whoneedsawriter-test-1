@@ -29,6 +29,7 @@ import { TbFileText, TbBolt, TbCrown, TbCreditCard } from "react-icons/tb";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import DashboardHeader from "@/components/organisms/DashboardHeader/DashboardHeader";
+import { useSearchParams } from "next/navigation";
 
 /*
   For more layout examples, check out:
@@ -41,8 +42,16 @@ import DashboardHeader from "@/components/organisms/DashboardHeader/DashboardHea
 export const Account = () => {
     const router = useRouter();
     const [isModalOpen, setIsModalOpen] = useState(false);
-    
+   
+    const searchParams = useSearchParams();
+    const showBuyExtraCredits = searchParams.get("action");
 
+    useEffect(() => {
+     if (showBuyExtraCredits === "buy-extra-credits") {
+         setIsModalOpen(true);
+     }
+    }, [showBuyExtraCredits]);
+    
     const {
         data: userData,
         isLoading,

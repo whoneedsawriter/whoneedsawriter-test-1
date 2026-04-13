@@ -256,6 +256,7 @@ const ArticleGenerator: React.FC = () => {
   const [progressGodmode, setProgressGodmode] = useState(0);
   const [GodModeLoader, setGodModeLoader] = useState(false);
   const redirectReadyRef = useRef(false);
+  const [showLowBalanceDialog, setShowLowBalanceDialog] = useState(false);
 
   const sendKeywordsSequentiallyGodmode = async (keywords: string[]) => {
     if (balance.credits == 0 ) {
@@ -263,15 +264,18 @@ const ArticleGenerator: React.FC = () => {
       return;
     }
     if( selectedModel === '1a-lite' && keywords.length * 0.1 > balance.credits){
-      toast.error("Limit Exceeded. Please shorten your list or buy more credits. ");
+     // toast.error("Limit Exceeded. Please shorten your list or buy more credits. ");
+      setShowLowBalanceDialog(true);
       return;
     }
     if( selectedModel === '1a-core' && keywords.length * 1 > balance.credits){
-      toast.error("Limit Exceeded. Please shorten your list or buy more credits. ");
+     // toast.error("Limit Exceeded. Please shorten your list or buy more credits. ");
+      setShowLowBalanceDialog(true);
       return;
     }
     if( selectedModel === '1a-pro' && keywords.length * 2 > balance.credits){
-      toast.error("Limit Exceeded. Please shorten your list or buy more credits. ");
+     // toast.error("Limit Exceeded. Please shorten your list or buy more credits. ");
+      setShowLowBalanceDialog(true);
       return;
     }
 
@@ -1302,6 +1306,14 @@ seo content writing tips`}
         />
       )}
 
+      {showLowBalanceDialog && (
+        <LowBalanceDialog
+          isOpen={showLowBalanceDialog}
+          onClose={() => setShowLowBalanceDialog(false)}
+          router={router}
+        />
+      )}
+
       {/* Publisher Details Modal */}
       <Modal isOpen={showPublisherDetailsPopup} onClose={() => setShowPublisherDetailsPopup(false)}>
         <ModalOverlay />
@@ -1535,6 +1547,43 @@ const EditPromptDialog = ({
             }}
           >
             Update
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+
+const LowBalanceDialog = ({
+  isOpen,
+  onClose,
+  router,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  router: ReturnType<typeof useRouter>;
+}) => {
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[525px] bg-[#1b2232] border border-[#ffffff14]">
+        <DialogHeader>
+          <DialogTitle className="text-white mb-2">Low Credits Balance</DialogTitle>
+          <DialogDescription className="text-[#a9b1c3]">
+           You do not have enough credits to generate articles. Shorten your list or change the model to a lower one or buy more credits.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="text-white">
+          <Button
+            type="submit"
+            colorScheme="brand"
+            onClick={async () => {
+              router.push("/account?action=buy-extra-credits");
+              onClose();
+            }}
+          >
+            Buy Credits
           </Button>
         </DialogFooter>
       </DialogContent>
