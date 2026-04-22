@@ -8,6 +8,17 @@ export async function  POST(req: NextRequest) {
     // transaction start
     const result = await prismaClient.$transaction(async (tx) => {
         const { email, name } = await req.json();
+        // check if user already exists
+        const userExists = await tx.user.findFirst({
+            where: {
+                email: email,
+            },
+        });
+        
+        if (userExists) {
+            return NextResponse.json({ success: false, message: "User already exists" }, { status: 400 });
+        }
+
         const user = await tx.user.create({
             data: {
                 email,
