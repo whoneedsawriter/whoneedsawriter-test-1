@@ -63,6 +63,16 @@ model User {
   description     String?
 }
 
+model OptVerification {
+   id                 Int         @id @default(autoincrement())
+   userId             String      
+   email              String
+   opt                Int
+   status             Boolean     @default(false)
+   createdAt          DateTime    @default(now())
+   updatedAt          DateTime    @updatedAt
+}
+
 model VerificationToken {
   identifier String
   token      String   @unique
