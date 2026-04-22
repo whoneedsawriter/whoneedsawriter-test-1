@@ -2,13 +2,15 @@ import { prismaClient } from "@/prisma/db";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
-    const { email, opt } = await req.json();
+    const { userId, email } = await req.json();
     const otp = Math.floor(100000 + Math.random() * 900000);
-    const otpVerification = await prismaClient.otpVerification.create({
+    const optVerification = await prismaClient.OptVerification.create({
         data: {
-            email,
-            opt,
+            userId,
+            email: email,
+            opt: otp,
+            status: false,
         },
     });
-    return NextResponse.json({ otpVerification });
+    return NextResponse.json({ optVerification });
 }
