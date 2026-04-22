@@ -1,6 +1,6 @@
 import { prismaClient } from "@/prisma/db";
-import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
+import { sendTransactionalEmail } from "@/libs/loops";
 
 export async function  POST(req: NextRequest) {
 
@@ -35,7 +35,16 @@ export async function  POST(req: NextRequest) {
               },
             });
 
-         return { user, otp };
+          // send email
+          await sendTransactionalEmail({
+            transactionalId: "cmo9ycy231zpc0i24smepuw9c",
+            email: email,
+            dataVariables: {
+              otp: otp.toString(),
+            },
+          });
+          
+          return { user, otp };
        });
 
        if (result instanceof Error) {
