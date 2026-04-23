@@ -65,8 +65,8 @@ model User {
 
 model OptVerification {
    id                 Int         @id @default(autoincrement())
-   userId             String      
-   email              String
+   userId             String?     @unique 
+   email              String?     
    opt                Int
    status             Boolean     @default(false)
    createdAt          DateTime    @default(now())

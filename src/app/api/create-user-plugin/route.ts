@@ -44,15 +44,14 @@ export async function  POST(req: NextRequest) {
             },
           });
           
-          return { user, otp };
+          return { userId: user.id };
        });
 
        if (result instanceof Error) {
            return NextResponse.json({ success: false, message: result.message }, { status: 500 });
        }
 
-       return NextResponse.json({ success: true, message: "User created successfully" }, { status: 200 });
-
+       return NextResponse.json({ success: true, message: "User created successfully", userId: result.userId }, { status: 200 });
    } catch (error) {
        console.error("Error creating user:", error);
        return NextResponse.json({ success: false, message: "User creation failed" }, { status: 500 });

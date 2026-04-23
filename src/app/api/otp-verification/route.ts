@@ -2,15 +2,15 @@ import { prismaClient } from "@/prisma/db";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
-    const { userId, email } = await req.json();
-    const otp = Math.floor(100000 + Math.random() * 900000);
-    const optVerification = await prismaClient.optVerification.create({
-        data: {
-            userId,
-            email: email,
-            opt: otp,
-            status: false,
+    const { userId, otp } = await req.json();
+    const optVerification = await prismaClient.optVerification.findFirst({
+        where: {
+            userId: userId,
+            opt: parseInt(otp) as number,
         },
     });
-    return NextResponse.json({ optVerification });
+    if (!optVerification) {
+        return NextResponse.json({ success: false, message: "Invalid OTP" }, { status: 400 });
+    }
+    return NextResponse.json({ success: true, message: "OTP verified" }, { status: 200 });
 }
