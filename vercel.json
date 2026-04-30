@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/job2",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/publish-plugin",
+      "schedule": "* * * * *"
     }
   ]
 }

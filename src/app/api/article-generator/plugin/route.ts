@@ -117,10 +117,10 @@ export async function POST(request: Request) {
                     toneChoice: '',
                     perspective: '',
                     description: '',
-                    references: references === 'Yes' ? 'Yes' : 'No'
+                    references: references === 'Yes' ? 'Yes' : 'No',
                     category: category || '',
                     author: author || '',
-                },
+                } as any,
             });
 
             // Create corresponding pending article entry

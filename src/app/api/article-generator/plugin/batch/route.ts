@@ -70,10 +70,11 @@ export async function POST(request: Request) {
           pending_articles: total_keywords,
           failed_articles: 0,
           status: 0,
-          websiteToPublish: websiteToPublish || null,
-          saveOption: saveOption || null,
-          scheduleTime: scheduleTime || null,
-        },
+          createdBy: 'plugin',
+          websiteToPublish: websiteToPublish || '',
+          saveOption: saveOption || '',
+          scheduleTime: scheduleTime || '',
+        } as any,
      });
   
       return NextResponse.json({ status: 200, assignedBatch: batch_created.id });
