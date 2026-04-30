@@ -89,7 +89,7 @@ function getCreditCost(model: string): number {
 export async function POST(request: Request) {
   
   try {
-    const {userId, batchId, textKeywords, model, balance_type, total_keywords, wordLimit, featuredImage, infographics, specialInstructions, externalLinks, references } = await request.json();
+    const {userId, batchId, textKeywords, model, balance_type, total_keywords, wordLimit, featuredImage, infographics, specialInstructions, externalLinks, references, category, author } = await request.json();
     if (!textKeywords || typeof textKeywords !== "string") {
       return NextResponse.json({ error: "Invalid keyword" }, { status: 400 });
     }
@@ -118,6 +118,8 @@ export async function POST(request: Request) {
                     perspective: '',
                     description: '',
                     references: references === 'Yes' ? 'Yes' : 'No'
+                    category: category || '',
+                    author: author || '',
                 },
             });
 

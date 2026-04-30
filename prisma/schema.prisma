@@ -212,6 +212,8 @@ model GodmodeArticles {
   perspective             String?
   description             String?
   references              String?
+  category                String? 
+  author                  String?
 }
 
 model PendingGodmodeArticles {
@@ -226,7 +228,7 @@ model PendingGodmodeArticles {
 }
 
 model batch {
-  id                 String   @id @default(cuid())
+  id                 String      @id @default(cuid())
   name               String
   articles           Int
   completed_articles Int
@@ -234,10 +236,15 @@ model batch {
   failed_articles    Int
   status             Int
   userId             String
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
   articleType        String
-  startProcess       Int      @default(0)
+  startProcess       Int         @default(0)
+  createdBy          String?
+  websiteToPublish   String?
+  isPublished        Boolean     @default(false)
+  saveOption         String?
+  scheduleTime       String?
 }
 
 model ApiKey {

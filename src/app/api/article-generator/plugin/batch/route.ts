@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
 // creating unique batch
 export async function POST(request: Request) {
   
-    const { batch, articleType, total_keywords, userId } = await request.json();
+    const { batch, articleType, total_keywords, userId, websiteToPublish, saveOption, scheduleTime } = await request.json();
   
     if (!batch) {
       return NextResponse.json({ error: "Batch is not there" }, { status: 401 });
@@ -70,6 +70,9 @@ export async function POST(request: Request) {
           pending_articles: total_keywords,
           failed_articles: 0,
           status: 0,
+          websiteToPublish: websiteToPublish || null,
+          saveOption: saveOption || null,
+          scheduleTime: scheduleTime || null,
         },
      });
   
