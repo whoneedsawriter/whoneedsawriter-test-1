@@ -101,7 +101,11 @@ export async function POST(request: Request) {
         const keywords = textKeywords.split(',').filter(keyword => keyword.trim() !== '');
         const articles = [];
 
-        for (const keyword of keywords) {
+        const categories = (category ?? '').split(',').map((s: string) => s.trim());
+        const authors = (author ?? '').split(',').map((s: string) => s.trim());
+
+        for (let index = 0; index < keywords.length; index++) {
+          const keyword = keywords[index];
              let article = await prismaClient.godmodeArticles.create({
                 data: {
                     userId,
@@ -118,8 +122,8 @@ export async function POST(request: Request) {
                     perspective: '',
                     description: '',
                     references: references === 'Yes' ? 'Yes' : 'No',
-                    category: category || '',
-                    author: author || '',
+                    category: categories[index] || categories[0] || '',
+                    author: authors[index] || authors[0] || '',
                 } as any,
             });
 
