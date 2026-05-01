@@ -214,6 +214,7 @@ model GodmodeArticles {
   references              String?
   category                String? 
   author                  String?
+  isPublished             Boolean  @default(false)
 }
 
 model PendingGodmodeArticles {
