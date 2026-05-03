@@ -13,6 +13,7 @@ type PluginBatchForPublish = {
 
 type GodmodeArticleForPublish = {
   id: string;
+  createdAt: Date;
   title: string | null;
   content: string | null;
   featuredImage: string | null;
@@ -119,27 +120,14 @@ export async function GET() {
       );
     }
 
-    const articles = (await prismaClient.godmodeArticles.findMany({
+    const statusOneCount = await prismaClient.godmodeArticles.count({
       where: {
         batchId: candidateBatch.id,
         status: 1,
-      },
-      orderBy: {
-        createdAt: 'asc',
-      },
-      select: {
-        id: true,
-        title: true,
-        content: true,
-        featuredImage: true,
-        category: true,
-        author: true,
-        metaTitle: true,
-        metaDescription: true,
       } as any,
-    })) as unknown as GodmodeArticleForPublish[];
+    });
 
-    if (articles.length === 0) {
+    if (statusOneCount === 0) {
       await prismaClient.batch.update({
         where: { id: candidateBatch.id },
         data: { isPublished: true } as any,
@@ -152,39 +140,101 @@ export async function GET() {
       });
     }
 
-    for (let i = 0; i < articles.length; i++) {
-      const article = articles[i];
+    const article = (await prismaClient.godmodeArticles.findFirst({
+      where: {
+        batchId: candidateBatch.id,
+        status: 1,
+        isPublished: false,
+        publishFailed: false,
+      } as any,
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        createdAt: true,
+        title: true,
+        content: true,
+        featuredImage: true,
+        category: true,
+        author: true,
+        metaTitle: true,
+        metaDescription: true,
+      } as any,
+    })) as GodmodeArticleForPublish | null;
 
-      const schedule_time =
-        candidateBatch.saveOption === 'future'
-          ? candidateBatch.scheduleTime === 'one_post_per_day'
-            ? `+${i * 24} hours`
-            : `+${i * 7} days`
-          : candidateBatch.scheduleTime || null;
+    if (!article) {
+      await prismaClient.batch.update({
+        where: { id: candidateBatch.id },
+        data: { isPublished: true } as any,
+      });
 
-      await publishToWordpress({
-        wordpressSite,
-        title: article.title,
-        content: article.content,
-        imageUrl: article.featuredImage,
-        category: article.category,
-        author: article.author,
-        saveOption: candidateBatch.saveOption,
-        scheduleTime: schedule_time,
-        metaTitle: article.metaTitle,
-        metaDescription: article.metaDescription,
+      return NextResponse.json({
+        success: true,
+        message: `Batch ${candidateBatch.id} has no pending articles; marked as published`,
+        published: 0,
+        batchId: candidateBatch.id,
       });
     }
 
-    await prismaClient.batch.update({
-      where: { id: candidateBatch.id },
+    const slotIndex = await prismaClient.godmodeArticles.count({
+      where: {
+        batchId: candidateBatch.id,
+        status: 1,
+        OR: [
+          { createdAt: { lt: article.createdAt } },
+          {
+            AND: [{ createdAt: article.createdAt }, { id: { lt: article.id } }],
+          },
+        ],
+      } as any,
+    });
+
+    const schedule_time =
+      candidateBatch.saveOption === 'future'
+        ? candidateBatch.scheduleTime === 'one_post_per_day'
+          ? `+${slotIndex * 24} hours`
+          : `+${slotIndex * 7} days`
+        : candidateBatch.scheduleTime || null;
+
+    await publishToWordpress({
+      wordpressSite,
+      title: article.title,
+      content: article.content,
+      imageUrl: article.featuredImage,
+      category: article.category,
+      author: article.author,
+      saveOption: candidateBatch.saveOption,
+      scheduleTime: schedule_time,
+      metaTitle: article.metaTitle,
+      metaDescription: article.metaDescription,
+    });
+
+    await prismaClient.godmodeArticles.update({
+      where: { id: article.id },
       data: { isPublished: true } as any,
     });
 
+    const pendingCount = await prismaClient.godmodeArticles.count({
+      where: {
+        batchId: candidateBatch.id,
+        status: 1,
+        isPublished: false,
+        publishFailed: false,
+      } as any,
+    });
+
+    if (pendingCount === 0) {
+      await prismaClient.batch.update({
+        where: { id: candidateBatch.id },
+        data: { isPublished: true } as any,
+      });
+    }
+
     return NextResponse.json({
       success: true,
-      message: `Published ${articles.length} articles for batch ${candidateBatch.id}`,
-      published: articles.length,
+      message: `Published 1 article for batch ${candidateBatch.id}${pendingCount === 0 ? '; batch complete' : ''}`,
+      published: 1,
+      batchComplete: pendingCount === 0,
+      articleId: article.id,
       batchId: candidateBatch.id,
       websiteToPublish: candidateBatch.websiteToPublish,
     });

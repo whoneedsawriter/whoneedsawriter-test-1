@@ -9,6 +9,8 @@ export type PluginUserBalanceResponse = {
   monthyPlan: number;
   lifetimeBalance: number;
   lifetimePlan: number;
+  SubscriptionDetails: any;
+  SubscriptionPlan: any;
 };
 
 export async function GET(
@@ -37,6 +39,16 @@ export async function GET(
       },
     });
 
+    const SubscriptionPlan = await prismaClient.userPlan.findFirst({
+      where: { userId: userId }
+    });
+    let SubscriptionDetails;
+    if(SubscriptionPlan && SubscriptionPlan.planId !== null){
+        SubscriptionDetails = await prismaClient.subscriptionPlan.findFirst({
+          where: { id : SubscriptionPlan.planId }
+        });
+    }
+
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
@@ -48,6 +60,8 @@ export async function GET(
         monthyPlan: user.monthyPlan,
         lifetimeBalance: user.lifetimeBalance,
         lifetimePlan: user.lifetimePlan,
+        SubscriptionDetails: SubscriptionDetails,
+        SubscriptionPlan: SubscriptionPlan,
       },
       { status: 200 }
     );

@@ -215,6 +215,7 @@ model GodmodeArticles {
   category                String? 
   author                  String?
   isPublished             Boolean  @default(false)
+  publishFailed           Boolean  @default(false)
 }
 
 model PendingGodmodeArticles {
