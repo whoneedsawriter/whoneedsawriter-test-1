@@ -24,8 +24,8 @@ try{
     line_items: [{ price: priceId, quantity: 1 }],
     mode: "subscription",
     customer_email: user.email as string,
-    success_url: `https://${website}/wp-admin/admin.php?page=whoneedsawriter-dashboard?payment=success&type=subscription&plan=${name}`, 
-    cancel_url: `https://${website}/wp-admin/admin.php?page=whoneedsawriter-dashboard?payment=failed`,
+    success_url: `https://${website}/wp-admin/admin.php?page=whoneedsawriter-dashboard&payment=success&type=subscription&plan=${name}`, 
+    cancel_url: `https://${website}/wp-admin/admin.php?page=whoneedsawriter-dashboard&payment=failed`,
   });
   return NextResponse.json({ url: session1.url });
 }catch(error:any){

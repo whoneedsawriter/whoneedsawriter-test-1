@@ -112,7 +112,7 @@ export async function POST(request: Request) {
                     batchId: batchId,
                     keyword: keyword,
                     model: model,
-                    articleType: 'godmode123',
+                    articleType: 'godmode',
                     featuredImageRequired: featuredImage === 'yes' ? 'Yes' : 'No',
                     additionalImageRequired: infographics === 'yes' ? 'Yes' : 'No',
                     wordLimit: wordLimit ? parseInt(wordLimit) : undefined,

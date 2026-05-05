@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
         type: "checkouts",
         attributes: {
           product_options: {
-            redirect_url: `https://${website}/wp-admin/admin.php?page=whoneedsawriter-dashboard?payment=success&type=lifetime&plan=${name}`,
+            redirect_url: `https://${website}/wp-admin/admin.php?page=whoneedsawriter-dashboard&payment=success&type=lifetime&plan=${name}`,
           },
           checkout_options: {
             embed: false,
