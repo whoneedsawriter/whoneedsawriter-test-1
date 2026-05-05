@@ -124,23 +124,23 @@ const Batch: React.FC = () => {
       ),
       header: "Batch",
     }),
-    {
-      id: "articleType",
-      header: "Article Type",
-      cell: ({ row }: { row: Row<BatchData> }) => {
-        const formatArticleType = (type: string) => {
-          if (type === 'godmode') return 'God Mode';
-          if (type === 'liteMode') return 'Lite Mode';
-          return type || 'N/A';
-        };
+    // {
+    //   id: "articleType",
+    //   header: "Article Type",
+    //   cell: ({ row }: { row: Row<BatchData> }) => {
+    //     const formatArticleType = (type: string) => {
+    //       if (type === 'godmode') return 'God Mode';
+    //       if (type === 'liteMode') return 'Lite Mode';
+    //       return type || 'N/A';
+    //     };
         
-        return (
-          <div className="capitalize">
-            {formatArticleType(row.original.articleType)}
-          </div>
-        );
-      },
-    },
+    //     return (
+    //       <div className="capitalize">
+    //         {formatArticleType(row.original.articleType)}
+    //       </div>
+    //     );
+    //   },
+    // },
     {
       id: "completed",
       header: "Articles Generated",
