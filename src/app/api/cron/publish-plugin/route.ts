@@ -195,10 +195,31 @@ export async function GET() {
           : `+${slotIndex * 7} days`
         : candidateBatch.scheduleTime || null;
 
+    const title = (article.title ?? '').trim();
+    const content = (article.content ?? '').trim();
+
+    if (!title || !content) {
+      await prismaClient.godmodeArticles.update({
+        where: { id: article.id },
+        data: { publishFailed: true } as any,
+      });
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: `Article ${article.id} is missing a valid title/content; marked as publishFailed`,
+          published: 0,
+          articleId: article.id,
+          batchId: candidateBatch.id,
+        },
+        { status: 400 }
+      );
+    }
+
     await publishToWordpress({
       wordpressSite,
-      title: article.title,
-      content: article.content,
+      title,
+      content,
       imageUrl: article.featuredImage,
       category: article.category,
       author: article.author,
