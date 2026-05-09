@@ -3,6 +3,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/config/auth";
 
+/** e.g. May 09, 2026 at 10:30 AM (server local time) */
+function formatPluginBatchCreatedAt(d: Date): string {
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+  ] as const;
+  const month = months[d.getMonth()];
+  const day = String(d.getDate()).padStart(2, "0");
+  const year = d.getFullYear();
+  let hour = d.getHours();
+  const minute = String(d.getMinutes()).padStart(2, "0");
+  const ampm = hour >= 12 ? "PM" : "AM";
+  hour = hour % 12;
+  if (hour === 0) hour = 12;
+  return `${month} ${day}, ${year} at ${hour}:${minute} ${ampm}`;
+}
+
 /** MMDDYY in UTC, e.g. 052026 → May 20, 2026 */
 function formatPluginBatchDatePart(d: Date): string {
   const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
@@ -32,26 +49,59 @@ async function generateUniquePluginBatchName(): Promise<string> {
   return candidate;
 }
 
+function toPluginBatchPayload(batch: {
+  name: string;
+  id: string;
+  articles: number;
+  completed_articles: number;
+  pending_articles: number;
+  failed_articles: number;
+  status: number;
+  createdAt: Date;
+}) {
+  return {
+    name: batch.name,
+    id: batch.id,
+    articles: batch.articles,
+    completed_articles: batch.completed_articles,
+    pending_articles: batch.pending_articles,
+    failed_articles: batch.failed_articles,
+    status: batch.status,
+    createdAt: formatPluginBatchCreatedAt(new Date(batch.createdAt)),
+  };
+}
+
 export async function GET(req: NextRequest) {
   try {
-    // Get user session
-    const session = await getServerSession(authOptions);
-
-    if (!session || !session.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { searchParams } = new URL(req.url);
+    const userId =
+      searchParams.get("userId")?.trim() || req.headers.get("x-user-id")?.trim() || "";
+    if (!userId) {
+      return NextResponse.json({ error: "User ID is required" }, { status: 401 });
     }
 
-    const userId = session?.user.id as string;
-    const batch = await prismaClient.batch.findMany({
-      where: {
-        userId: userId,
-      },
+    const batchId = searchParams.get("batchId")?.trim();
+
+    if (batchId) {
+      const batch = await prismaClient.batch.findFirst({
+        where: { id: batchId, userId },
+      });
+      if (!batch) {
+        return NextResponse.json({ error: "Batch not found" }, { status: 404 });
+      }
+      return NextResponse.json(toPluginBatchPayload(batch), { status: 200 });
+    }
+
+    const batches = await prismaClient.batch.findMany({
+      where: { userId },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
     });
 
-    return NextResponse.json({ batch });
+    return NextResponse.json({
+      batch: batches.map(toPluginBatchPayload),
+    }, { status: 200 });
   } catch (error) {
     console.error("Error fetching articles:", error);
     return NextResponse.json(
@@ -88,8 +138,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       status: 200,
-      assignedBatch: batch_created.id,
-      batchName: batch_created.name,
+      assignedBatch: batch_created.id
     });
   } catch (error) {
     console.error("Error creating batch:", error);
