@@ -3,6 +3,35 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/config/auth";
 
+/** MMDDYY in UTC, e.g. 052026 → May 20, 2026 */
+function formatPluginBatchDatePart(d: Date): string {
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const yy = String(d.getUTCFullYear() % 100).padStart(2, "0");
+  return `${mm}${dd}${yy}`;
+}
+
+async function generateUniquePluginBatchName(): Promise<string> {
+  const datePart = formatPluginBatchDatePart(new Date());
+  const prefix = `#WNAW-${datePart}-`;
+  let seq = 1;
+  let candidate = `${prefix}${seq}`;
+
+  let exists = await prismaClient.batch.findFirst({
+    where: { name: candidate },
+  });
+
+  while (exists) {
+    seq++;
+    candidate = `${prefix}${seq}`;
+    exists = await prismaClient.batch.findFirst({
+      where: { name: candidate },
+    });
+  }
+
+  return candidate;
+}
+
 export async function GET(req: NextRequest) {
   try {
     // Get user session
@@ -34,58 +63,39 @@ export async function GET(req: NextRequest) {
 
 // creating unique batch
 export async function POST(request: Request) {
-  
-    const { batch, articleType, total_keywords, userId, websiteToPublish, saveOption, scheduleTime } = await request.json();
-  
-    if (!batch) {
-      return NextResponse.json({ error: "Batch is not there" }, { status: 401 });
-    }
-  
-    try{
-      let finalBatchName = batch.trim();
-      let suffix = 1;
-  
-      // Check if the batch name exists
-      let exists = await prismaClient.batch.findFirst({
-          where: { name: finalBatchName }
-      });
-  
-      // If exists, keep incrementing a suffix until it's unique
-      while (exists) {
-          finalBatchName = `${batch}${suffix}`;
-          suffix++;
-  
-          exists = await prismaClient.batch.findFirst({
-              where: { name: finalBatchName }
-          });
-      }
-  
-      let batch_created = await prismaClient.batch.create({
-        data: {
-          userId,
-          name: finalBatchName,
-          articleType: articleType,
-          articles: total_keywords,
-          completed_articles: 0,
-          pending_articles: total_keywords,
-          failed_articles: 0,
-          status: 0,
-          createdBy: 'plugin',
-          websiteToPublish: websiteToPublish || '',
-          saveOption: saveOption || '',
-          scheduleTime: scheduleTime || '',
-        } as any,
-     });
-  
-      return NextResponse.json({ status: 200, assignedBatch: batch_created.id });
-    } catch (error) {
-      console.error("Error creating batch:", error);
-      return NextResponse.json(
-        { error: "Failed to create batch" },
-        { status: 500 }
-      );
-    }
+  const { articleType, total_keywords, userId, websiteToPublish, saveOption, scheduleTime } =
+    await request.json();
+
+  try {
+    const finalBatchName = await generateUniquePluginBatchName();
+
+    const batch_created = await prismaClient.batch.create({
+      data: {
+        userId,
+        name: finalBatchName,
+        articleType: articleType,
+        articles: total_keywords,
+        completed_articles: 0,
+        pending_articles: total_keywords,
+        failed_articles: 0,
+        status: 0,
+        createdBy: "plugin",
+        websiteToPublish: websiteToPublish || "",
+        saveOption: saveOption || "",
+        scheduleTime: scheduleTime || "",
+      } as any,
+    });
+
+    return NextResponse.json({
+      status: 200,
+      assignedBatch: batch_created.id,
+      batchName: batch_created.name,
+    });
+  } catch (error) {
+    console.error("Error creating batch:", error);
+    return NextResponse.json({ error: "Failed to create batch" }, { status: 500 });
   }
+}
 
 export async function DELETE(request: Request) {
   try {
