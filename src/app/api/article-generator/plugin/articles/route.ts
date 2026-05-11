@@ -22,7 +22,7 @@ export async function GET(
 ): Promise<NextResponse<PluginJobsResponse | ApiError>> {
   try {
     const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("id")?.trim();
+    const userId = searchParams.get("userId")?.trim();
     const batchId = searchParams.get("batchId")?.trim();
 
     if (!userId) {
