@@ -23,6 +23,7 @@ export async function GET(
   try {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("id")?.trim();
+    const batchId = searchParams.get("batchId")?.trim();
 
     if (!userId) {
       return NextResponse.json(
@@ -39,20 +40,38 @@ export async function GET(
     if (!userExists) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
+    
+    let rows;
+    if (batchId) {
+      rows = await prismaClient.godmodeArticles.findMany({
+        where: { userId, batchId: batchId },
+        orderBy: { createdAt: "desc" },
+        select: {
+          keyword: true,
+          title: true,
+          status: true,
+          model: true,
+          category: true,
+          author: true,
+          isPublished: true,
+        },
+      });
+    }else{
+      rows = await prismaClient.godmodeArticles.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        select: {
+          keyword: true,
+          title: true,
+          status: true,
+          model: true,
+          category: true,
+          author: true,
+          isPublished: true,
+        },
+      });
+    }
 
-    const rows = await prismaClient.godmodeArticles.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      select: {
-        keyword: true,
-        title: true,
-        status: true,
-        model: true,
-        category: true,
-        author: true,
-        isPublished: true,
-      },
-    });
 
     return NextResponse.json({ articles: rows }, { status: 200 });
   } catch (error) {
