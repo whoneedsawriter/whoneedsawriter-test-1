@@ -230,23 +230,24 @@ model PendingGodmodeArticles {
 }
 
 model batch {
-  id                 String      @id @default(cuid())
-  name               String
-  articles           Int
-  completed_articles Int
-  pending_articles   Int
-  failed_articles    Int
-  status             Int
-  userId             String
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
-  articleType        String
-  startProcess       Int         @default(0)
-  createdBy          String?
-  websiteToPublish   String?
-  isPublished        Boolean     @default(false)
-  saveOption         String?
-  scheduleTime       String?
+  id                       String      @id @default(cuid())
+  name                     String
+  articles                 Int
+  completed_articles       Int
+  pending_articles         Int
+  failed_articles          Int
+  status                   Int
+  userId                   String
+  createdAt                DateTime    @default(now())
+  updatedAt                DateTime    @updatedAt
+  articleType              String
+  startProcess             Int         @default(0)
+  createdBy                String?
+  websiteToPublish         String?
+  isPublished              Boolean     @default(false)
+  saveOption               String?
+  scheduleTime             String?
+  publishedStartDateTime   DateTime?
 }
 
 model ApiKey {

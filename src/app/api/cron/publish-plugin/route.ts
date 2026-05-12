@@ -86,13 +86,22 @@ export async function GET() {
   try {
     // NOTE: The Prisma Client types in this workspace may be out of sync with `schema.prisma`.
     // We keep runtime behavior correct while allowing compilation by using a narrow local type.
+    const now = new Date();
+
     const candidateBatch = (await prismaClient.batch.findFirst({
       where: {
         createdBy: 'plugin',
         isPublished: false,
         status: 1,
+        OR: [
+          { publishedStartDateTime: null },
+          { publishedStartDateTime: { lte: now } },
+        ],
       } as any,
-      orderBy: { createdAt: 'asc' },
+      orderBy: [
+        { publishedStartDateTime: { sort: 'asc', nulls: 'first' } },
+        { createdAt: 'asc' },
+      ] as any,
       select: {
         id: true,
         websiteToPublish: true,
@@ -192,7 +201,9 @@ export async function GET() {
       candidateBatch.saveOption === 'future'
         ? candidateBatch.scheduleTime === 'one_post_per_day'
           ? `+${slotIndex * 24} hours`
-          : `+${slotIndex * 7} days`
+          : candidateBatch.scheduleTime === 'one_post_per_month'
+            ? `+${slotIndex * 30} days`
+            : `+${slotIndex * 7} days`
         : candidateBatch.scheduleTime || null;
 
     const title = (article.title ?? '').trim();

@@ -1169,6 +1169,7 @@ const ArticlesList: React.FC = () => {
                     >
                       <option value="one_post_per_day">One post daily</option>
                       <option value="one_post_weekly">One post weekly</option>
+                      <option value="one_post_per_month">One post monthly</option>
                     </Select>
                     </Box>
                 )}

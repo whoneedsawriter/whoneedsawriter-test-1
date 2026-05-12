@@ -113,7 +113,7 @@ export async function GET(req: NextRequest) {
 
 // creating unique batch
 export async function POST(request: Request) {
-  const { articleType, total_keywords, userId, websiteToPublish, saveOption, scheduleTime } =
+  const { articleType, total_keywords, userId, websiteToPublish, saveOption, scheduleTime, publishedStartDateTime } =
     await request.json();
 
   try {
@@ -133,6 +133,7 @@ export async function POST(request: Request) {
         websiteToPublish: websiteToPublish || "",
         saveOption: saveOption || "",
         scheduleTime: scheduleTime || "",
+        publishedStartDateTime: publishedStartDateTime || null,
       } as any,
     });
 
