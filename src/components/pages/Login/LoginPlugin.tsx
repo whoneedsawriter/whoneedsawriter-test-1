@@ -3,17 +3,13 @@
 import {
   Button,
   Flex,
-  Link,
   Text,
   useColorModeValue,
 } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
 import { FcGoogle } from "react-icons/fc";
 import { signIn } from "next-auth/react";
-import Image from "next/image";
 import { useColorModeValues } from "@/hooks/useColorModeValues";
-import { TbArrowNarrowLeft } from "react-icons/tb";
-import { useRouter } from "next/navigation";
 import { Logo, LogoLight } from "@/components/atoms/Logo/Logo";
 
 type Props = {
@@ -23,7 +19,6 @@ type Props = {
 };
 
 const LoginPlugin = ({ redirectUri, initialState, initialError }: Props) => {
-  const router = useRouter();
   const { primaryTextColor, borderColor } = useColorModeValues();
   const boxBgColor = useColorModeValue("white", "transparent");
   const LogoComponent = useColorModeValue(LogoLight, Logo);
@@ -90,19 +85,6 @@ const LoginPlugin = ({ redirectUri, initialState, initialError }: Props) => {
       justifyContent="flex-start"
       flexDir="column"
     >
-      <Button
-        position="absolute"
-        top="8px"
-        left="8px"
-        variant="ghost"
-        leftIcon={<TbArrowNarrowLeft />}
-        onClick={() => router.push("/")}
-        _hover={{
-          bgColor: "transparent",
-        }}
-      >
-        Back
-      </Button>
       <Flex
         w="100vw"
         h="100vh"
@@ -177,13 +159,6 @@ const LoginPlugin = ({ redirectUri, initialState, initialError }: Props) => {
               Continue with Google
             </Button>
           )}
-
-          <Text mt="16px" fontSize="13px" color="gray.500">
-            Prefer signing in on the web app?{" "}
-            <Link href="/login" ml="4px" color="brand.500">
-              Normal login
-            </Link>
-          </Text>
         </Flex>
       </Flex>
     </Flex>
