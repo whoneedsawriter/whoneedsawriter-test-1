@@ -85,7 +85,7 @@ export async function GET() {
             transactionalId: "cmb2jl0ijc6ea430in4xiowyv",
             email: user.email,
             dataVariables: {
-              text1: `Here is the status of godemode articles in batch ${batch.name}`,
+              text1: `Here is the status of articles in batch ${batch.name}`,
               text2: `<table border="1" cellspacing="0" cellpadding="8" style="margin: 0 auto;">
               <thead>
                <tr>

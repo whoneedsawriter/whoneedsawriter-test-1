@@ -369,7 +369,7 @@ export async function GET() {
             transactionalId: "cmb2jl0ijc6ea430in4xiowyv",
             email: user.email,
             dataVariables: {
-              text1: `Here is the current status of godemode articles in batch ${batch.name}. We will update you again in 15 minutes.`,
+              text1: `Here is the current status of articles in batch ${batch.name}. We will update you again in 15 minutes.`,
               subject: `Articles generated in ${batch.name} are partially completed`,
               text2: `<table border="1" cellspacing="0" cellpadding="8" style="margin: 0 auto;">
               <thead>
