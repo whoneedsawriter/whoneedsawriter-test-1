@@ -202,7 +202,7 @@ export async function GET() {
             transactionalId: "cmb2jl0ijc6ea430in4xiowyv",
             email: user.email,
             dataVariables: {
-              text1: `${notReadyArticles.length} articles of god mode failed to generate and balance has been refunded to your account. Please retry generation after 20 minutes.`,
+              text1: `${notReadyArticles.length} articles failed to generate and balance has been refunded to your account. Please retry generation after 20 minutes.`,
               text2: `<table border="1" cellspacing="0" cellpadding="8" style="margin: 0 auto;">
               <thead>
                <tr>
@@ -221,7 +221,7 @@ export async function GET() {
                </tr>
               </tbody>
               </table>`,
-              subject: 'Balance Refund Completed - God mode',
+              subject: 'Balance Refund Completed',
               batch: batch.id
             },
           });
@@ -518,7 +518,7 @@ export async function GET() {
             transactionalId: "cmb2jl0ijc6ea430in4xiowyv",
             email: user.email,
             dataVariables: {
-              text1: `${notReadyArticles.length} Articles Generated on God mode will be completed in another 15 minutes`,
+              text1: `${notReadyArticles.length} Articles Generated will be completed in another 15 minutes`,
               text2: `<table border="1" cellspacing="0" cellpadding="8" style="margin: 0 auto;">
               <thead>
                <tr>
