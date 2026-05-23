@@ -9,6 +9,7 @@ type PluginBatchForPublish = {
   websiteToPublish: string | null;
   saveOption: string | null;
   scheduleTime: string | null;
+  publishedStartDateTime: Date | null;
 };
 
 type GodmodeArticleForPublish = {
@@ -32,6 +33,7 @@ async function publishToWordpress(params: {
   author: string | null;
   saveOption: string | null;
   scheduleTime: string | null;
+  publishedStartDateTime: Date | null;
   metaTitle: string | null;
   metaDescription: string | null;
 }) {
@@ -44,6 +46,7 @@ async function publishToWordpress(params: {
     author,
     saveOption,
     scheduleTime,
+    publishedStartDateTime,
     metaTitle,
     metaDescription,
   } = params;
@@ -64,6 +67,7 @@ async function publishToWordpress(params: {
       plugin_version: plugin?.version,
       status: saveOption,
       schedule_time: scheduleTime,
+      published_start_date_time: publishedStartDateTime?.toISOString() ?? null,
       meta_title: metaTitle,
       meta_description: metaDescription,
       add_featured_image: true,
@@ -86,27 +90,19 @@ export async function GET() {
   try {
     // NOTE: The Prisma Client types in this workspace may be out of sync with `schema.prisma`.
     // We keep runtime behavior correct while allowing compilation by using a narrow local type.
-    const now = new Date();
-
     const candidateBatch = (await prismaClient.batch.findFirst({
       where: {
         createdBy: 'plugin',
         isPublished: false,
         status: 1,
-        OR: [
-          { publishedStartDateTime: null },
-          { publishedStartDateTime: { lte: now } },
-        ],
       } as any,
-      orderBy: [
-        { publishedStartDateTime: { sort: 'asc', nulls: 'first' } },
-        { createdAt: 'asc' },
-      ] as any,
+      orderBy: { createdAt: 'asc' },
       select: {
         id: true,
         websiteToPublish: true,
         saveOption: true,
         scheduleTime: true,
+        publishedStartDateTime: true,
       } as any,
     })) as PluginBatchForPublish | null;
 
@@ -236,6 +232,7 @@ export async function GET() {
       author: article.author,
       saveOption: candidateBatch.saveOption,
       scheduleTime: schedule_time,
+      publishedStartDateTime: candidateBatch.publishedStartDateTime,
       metaTitle: article.metaTitle,
       metaDescription: article.metaDescription,
     });
