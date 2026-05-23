@@ -51,28 +51,41 @@ async function publishToWordpress(params: {
     metaDescription,
   } = params;
 
+  console.log('[publish-plugin] publishToWordpress args:', {
+    scheduleTime,
+    publishedStartDateTime: publishedStartDateTime?.toISOString() ?? null,
+  });
+
   const plugin = await prismaClient.plugin.findFirst({
     select: { version: true },
   });
 
-  const response = await fetch(`${wordpressSite}/wp-json/apf/v1/create-post`, {
+  const createPostUrl = `${wordpressSite}/wp-json/apf/v1/create-post`;
+  const payload = {
+    title,
+    content,
+    image_url: imageUrl,
+    category,
+    author,
+    plugin_version: plugin?.version,
+    status: saveOption,
+    schedule_time: scheduleTime,
+    published_start_date_time: publishedStartDateTime?.toISOString() ?? null,
+    meta_title: metaTitle,
+    meta_description: metaDescription,
+    add_featured_image: true,
+    add_meta_content: true,
+  };
+
+  console.log(`[publish-plugin] POST ${createPostUrl} payload:`, {
+    schedule_time: payload.schedule_time,
+    published_start_date_time: payload.published_start_date_time,
+  });
+
+  const response = await fetch(createPostUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      title,
-      content,
-      image_url: imageUrl,
-      category,
-      author,
-      plugin_version: plugin?.version,
-      status: saveOption,
-      schedule_time: scheduleTime,
-      published_start_date_time: publishedStartDateTime?.toISOString() ?? null,
-      meta_title: metaTitle,
-      meta_description: metaDescription,
-      add_featured_image: true,
-      add_meta_content: true,
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
@@ -222,6 +235,13 @@ export async function GET() {
         { status: 400 }
       );
     }
+
+    console.log('[publish-plugin] calling publishToWordpress:', {
+      batchId: candidateBatch.id,
+      articleId: article.id,
+      scheduleTime: schedule_time,
+      publishedStartDateTime: candidateBatch.publishedStartDateTime?.toISOString() ?? null,
+    });
 
     await publishToWordpress({
       wordpressSite,
