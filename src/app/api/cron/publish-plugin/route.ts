@@ -197,7 +197,7 @@ export async function GET() {
       candidateBatch.saveOption === 'future'
         ? candidateBatch.scheduleTime === 'one_post_per_day'
           ? `+${slotIndex * 24} hours`
-          : candidateBatch.scheduleTime === 'one_post_per_month'
+          : candidateBatch.scheduleTime === 'one_post_per_monthly'
             ? `+${slotIndex * 30} days`
             : `+${slotIndex * 7} days`
         : candidateBatch.scheduleTime || null;
