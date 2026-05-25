@@ -1,5 +1,6 @@
 import { prismaClient } from '@/prisma/db';
 import { NextResponse } from 'next/server';
+import { waitUntil } from '@vercel/functions';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -26,8 +27,8 @@ type GodmodeArticleForPublish = {
 
 async function publishToWordpress(params: {
   wordpressSite: string;
-  title: string | null;
-  content: string | null;
+  title: string;
+  content: string;
   imageUrl: string | null;
   category: string | null;
   author: string | null;
@@ -101,8 +102,6 @@ export async function GET() {
   console.log('🕑 Publish plugin cron job ran!');
 
   try {
-    // NOTE: The Prisma Client types in this workspace may be out of sync with `schema.prisma`.
-    // We keep runtime behavior correct while allowing compilation by using a narrow local type.
     const candidateBatch = (await prismaClient.batch.findFirst({
       where: {
         createdBy: 'plugin',
@@ -219,21 +218,14 @@ export async function GET() {
     const content = (article.content ?? '').trim();
 
     if (!title || !content) {
-      await prismaClient.godmodeArticles.update({
-        where: { id: article.id },
-        data: { publishFailed: true } as any,
+      console.log(`[publish-plugin] Article ${article.id} is missing title/content, skipping for now`);
+      return NextResponse.json({
+        success: true,
+        message: `Article ${article.id} is missing a valid title/content; skipped, will retry next run`,
+        published: 0,
+        articleId: article.id,
+        batchId: candidateBatch.id,
       });
-
-      return NextResponse.json(
-        {
-          success: false,
-          message: `Article ${article.id} is missing a valid title/content; marked as publishFailed`,
-          published: 0,
-          articleId: article.id,
-          batchId: candidateBatch.id,
-        },
-        { status: 400 }
-      );
     }
 
     console.log('[publish-plugin] calling publishToWordpress:', {
@@ -243,46 +235,60 @@ export async function GET() {
       publishedStartDateTime: candidateBatch.publishedStartDateTime?.toISOString() ?? null,
     });
 
-    await publishToWordpress({
-      wordpressSite,
-      title,
-      content,
-      imageUrl: article.featuredImage,
-      category: article.category,
-      author: article.author,
-      saveOption: candidateBatch.saveOption,
-      scheduleTime: schedule_time,
-      publishedStartDateTime: candidateBatch.publishedStartDateTime,
-      metaTitle: article.metaTitle,
-      metaDescription: article.metaDescription,
-    });
+    // Fire WordPress publish in background — response returns immediately
+    waitUntil(
+      (async () => {
+        try {
+          await publishToWordpress({
+            wordpressSite,
+            title,
+            content,
+            imageUrl: article.featuredImage,
+            category: article.category,
+            author: article.author,
+            saveOption: candidateBatch.saveOption,
+            scheduleTime: schedule_time,
+            publishedStartDateTime: candidateBatch.publishedStartDateTime,
+            metaTitle: article.metaTitle,
+            metaDescription: article.metaDescription,
+          });
 
-    await prismaClient.godmodeArticles.update({
-      where: { id: article.id },
-      data: { isPublished: true } as any,
-    });
+          await prismaClient.godmodeArticles.update({
+            where: { id: article.id },
+            data: { isPublished: true } as any,
+          });
 
-    const pendingCount = await prismaClient.godmodeArticles.count({
-      where: {
-        batchId: candidateBatch.id,
-        status: 1,
-        isPublished: false,
-        publishFailed: false,
-      } as any,
-    });
+          const pendingCount = await prismaClient.godmodeArticles.count({
+            where: {
+              batchId: candidateBatch.id,
+              status: 1,
+              isPublished: false,
+              publishFailed: false,
+            } as any,
+          });
 
-    if (pendingCount === 0) {
-      await prismaClient.batch.update({
-        where: { id: candidateBatch.id },
-        data: { isPublished: true } as any,
-      });
-    }
+          if (pendingCount === 0) {
+            await prismaClient.batch.update({
+              where: { id: candidateBatch.id },
+              data: { isPublished: true } as any,
+            });
+          }
+
+          console.log(`[publish-plugin] ✅ Article ${article.id} published successfully`);
+        } catch (error) {
+          console.error(`[publish-plugin] ❌ Background publish failed for article ${article.id}:`, error);
+          await prismaClient.godmodeArticles.update({
+            where: { id: article.id },
+            data: { publishFailed: true } as any,
+          }).catch(() => {});
+        }
+      })()
+    );
 
     return NextResponse.json({
       success: true,
-      message: `Published 1 article for batch ${candidateBatch.id}${pendingCount === 0 ? '; batch complete' : ''}`,
+      message: `Publishing article for batch ${candidateBatch.id} (background)`,
       published: 1,
-      batchComplete: pendingCount === 0,
       articleId: article.id,
       batchId: candidateBatch.id,
       websiteToPublish: candidateBatch.websiteToPublish,
