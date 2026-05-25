@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
     }
 
     const batches = await prismaClient.batch.findMany({
-      where: { userId },
+      where: { userId, createdBy: "plugin" },
       orderBy: {
         createdAt: "desc",
       },
