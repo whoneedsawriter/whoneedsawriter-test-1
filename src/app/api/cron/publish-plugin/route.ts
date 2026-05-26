@@ -262,7 +262,7 @@ export async function GET() {
             where: {
               batchId: candidateBatch.id,
               status: 1,
-              isPublished: false,
+              isPublished: true,
               publishFailed: false,
             } as any,
           });
