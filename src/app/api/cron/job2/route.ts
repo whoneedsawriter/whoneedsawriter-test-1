@@ -105,7 +105,9 @@ export async function GET() {
               </tbody>
               </table>`,
               subject: `Articles generated in ${batch.name} are now completed`,
-              batch: batch.id
+              viewLink: batch.websiteToPublish
+                ? `${batch.websiteToPublish}/wp-admin/admin.php?page=whoneedsawriter-jobs&job_id=${batch.id}`
+                : `https://whoneedsawriter.com/articles?batchId=${batch.id}`
             },
           });
           console.log(`Successfully sent completion email to ${user.email} for batch ${batch.id}`);

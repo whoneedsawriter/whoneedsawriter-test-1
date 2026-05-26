@@ -186,7 +186,9 @@ export async function GET() {
               </tbody>
               </table>`,
               subject: `Final status of articles generated in ${batch.name}`,
-              batch: batch.id
+              viewLink: batch.websiteToPublish
+                ? `${batch.websiteToPublish}/wp-admin/admin.php?page=whoneedsawriter-jobs&job_id=${batch.id}`
+                : `https://whoneedsawriter.com/articles?batchId=${batch.id}`
             },
           });
           console.log(`Successfully sent forced completion email to ${user.email} for batch ${batch.id}`);
@@ -222,7 +224,9 @@ export async function GET() {
               </tbody>
               </table>`,
               subject: 'Balance Refund Completed',
-              batch: batch.id
+              viewLink: batch.websiteToPublish
+                ? `${batch.websiteToPublish}/wp-admin/admin.php?page=whoneedsawriter-jobs&job_id=${batch.id}`
+                : `https://whoneedsawriter.com/articles?batchId=${batch.id}`
             },
           });
           console.log(`Successfully sent refund email to ${user.email} for batch ${batch.id}`);
@@ -389,7 +393,9 @@ export async function GET() {
                </tr>
               </tbody>
               </table>`,
-              batch: batch.id
+              viewLink: batch.websiteToPublish
+                ? `${batch.websiteToPublish}/wp-admin/admin.php?page=whoneedsawriter-jobs&job_id=${batch.id}`
+                : `https://whoneedsawriter.com/articles?batchId=${batch.id}`
             },
           });
           console.log(`Successfully sent partial completion email to ${user.email} for batch ${batch.id}`);
@@ -538,7 +544,9 @@ export async function GET() {
               </tbody>
               </table>`,
               subject: `Article Generation for ${batch.name} is taking longer than expected`,
-              batch: batch.id
+              viewLink: batch.websiteToPublish
+                ? `${batch.websiteToPublish}/wp-admin/admin.php?page=whoneedsawriter-jobs&job_id=${batch.id}`
+                : `https://whoneedsawriter.com/articles?batchId=${batch.id}`
             },
           });
           console.log(`Successfully sent processing email to ${user.email} for batch ${batch.id}`);
