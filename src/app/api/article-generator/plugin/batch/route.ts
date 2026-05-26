@@ -115,6 +115,7 @@ export async function GET(req: NextRequest) {
 export async function POST(request: Request) {
   const { articleType, total_keywords, userId, websiteToPublish, saveOption, scheduleTime, publishedStartDateTime } =
     await request.json();
+    console.log(publishedStartDateTime);
 
   try {
     const finalBatchName = await generateUniquePluginBatchName();
