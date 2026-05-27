@@ -98,6 +98,19 @@ async function publishToWordpress(params: {
   }
 }
 
+function buildScheduleTime(batch: PluginBatchForPublish, slotIndex: number): string | null {
+  if (batch.saveOption !== 'future') {
+    return batch.scheduleTime || null;
+  }
+  if (batch.scheduleTime === 'one_post_per_day') {
+    return `+${slotIndex * 24} hours`;
+  }
+  if (batch.scheduleTime === 'one_post_per_monthly') {
+    return `+${slotIndex * 30} days`;
+  }
+  return `+${slotIndex * 7} days`;
+}
+
 export async function GET() {
   console.log('🕑 Publish plugin cron job ran!');
 
@@ -137,27 +150,7 @@ export async function GET() {
       );
     }
 
-    const statusOneCount = await prismaClient.godmodeArticles.count({
-      where: {
-        batchId: candidateBatch.id,
-        status: 1,
-      } as any,
-    });
-
-    if (statusOneCount === 0) {
-      await prismaClient.batch.update({
-        where: { id: candidateBatch.id },
-        data: { isPublished: true } as any,
-      });
-
-      return NextResponse.json({
-        success: true,
-        message: `Batch ${candidateBatch.id} had no articles to publish; marked as published`,
-        published: 0,
-      });
-    }
-
-    const article = (await prismaClient.godmodeArticles.findFirst({
+    const articles = (await prismaClient.godmodeArticles.findMany({
       where: {
         batchId: candidateBatch.id,
         status: 1,
@@ -176,9 +169,9 @@ export async function GET() {
         metaTitle: true,
         metaDescription: true,
       } as any,
-    })) as GodmodeArticleForPublish | null;
+    })) as unknown as GodmodeArticleForPublish[];
 
-    if (!article) {
+    if (articles.length === 0) {
       await prismaClient.batch.update({
         where: { id: candidateBatch.id },
         data: { isPublished: true } as any,
@@ -192,104 +185,113 @@ export async function GET() {
       });
     }
 
-    const slotIndex = await prismaClient.godmodeArticles.count({
+    const orderedStatusOne = await prismaClient.godmodeArticles.findMany({
       where: {
         batchId: candidateBatch.id,
         status: 1,
-        OR: [
-          { createdAt: { lt: article.createdAt } },
-          {
-            AND: [{ createdAt: article.createdAt }, { id: { lt: article.id } }],
-          },
-        ],
       } as any,
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: { id: true },
     });
+    const slotIndexById = new Map(orderedStatusOne.map((row, index) => [row.id, index]));
 
-    const schedule_time =
-      candidateBatch.saveOption === 'future'
-        ? candidateBatch.scheduleTime === 'one_post_per_day'
-          ? `+${slotIndex * 24} hours`
-          : candidateBatch.scheduleTime === 'one_post_per_monthly'
-            ? `+${slotIndex * 30} days`
-            : `+${slotIndex * 7} days`
-        : candidateBatch.scheduleTime || null;
+    const publishableArticles = articles.filter(
+      (a) => (a.title ?? '').trim() && (a.content ?? '').trim()
+    );
 
-    const title = (article.title ?? '').trim();
-    const content = (article.content ?? '').trim();
-
-    if (!title || !content) {
-      console.log(`[publish-plugin] Article ${article.id} is missing title/content, skipping for now`);
+    if (publishableArticles.length === 0) {
+      console.log(
+        `[publish-plugin] Batch ${candidateBatch.id}: ${articles.length} pending article(s) missing title/content`
+      );
       return NextResponse.json({
         success: true,
-        message: `Article ${article.id} is missing a valid title/content; skipped, will retry next run`,
+        message: `All pending articles are missing valid title/content; skipped, will retry next run`,
         published: 0,
-        articleId: article.id,
+        articleIds: articles.map((a) => a.id),
         batchId: candidateBatch.id,
       });
     }
 
-    console.log('[publish-plugin] calling publishToWordpress:', {
+    console.log('[publish-plugin] queuing publish for batch:', {
       batchId: candidateBatch.id,
-      articleId: article.id,
-      scheduleTime: schedule_time,
+      articleCount: publishableArticles.length,
       publishedStartDateTime: candidateBatch.publishedStartDateTime?.toISOString() ?? null,
     });
 
-    // Fire WordPress publish in background — response returns immediately
+    // Publish all articles in background — response returns immediately
     waitUntil(
       (async () => {
-        try {
-          await publishToWordpress({
-            wordpressSite,
-            title,
-            content,
-            imageUrl: article.featuredImage,
-            category: article.category,
-            author: article.author,
-            saveOption: candidateBatch.saveOption,
-            scheduleTime: schedule_time,
-            publishedStartDateTime: candidateBatch.publishedStartDateTime,
-            metaTitle: article.metaTitle,
-            metaDescription: article.metaDescription,
-          });
+        for (const article of publishableArticles) {
+          const title = (article.title ?? '').trim();
+          const content = (article.content ?? '').trim();
+          const slotIndex = slotIndexById.get(article.id) ?? 0;
+          const schedule_time = buildScheduleTime(candidateBatch, slotIndex);
 
-          await prismaClient.godmodeArticles.update({
-            where: { id: article.id },
-            data: { isPublished: true } as any,
-          });
-
-          const pendingCount = await prismaClient.godmodeArticles.count({
-            where: {
+          try {
+            console.log('[publish-plugin] calling publishToWordpress:', {
               batchId: candidateBatch.id,
-              status: 1,
-              isPublished: true,
-              publishFailed: false,
-            } as any,
-          });
+              articleId: article.id,
+              scheduleTime: schedule_time,
+            });
 
-          if (pendingCount === 0) {
-            await prismaClient.batch.update({
-              where: { id: candidateBatch.id },
+            await publishToWordpress({
+              wordpressSite,
+              title,
+              content,
+              imageUrl: article.featuredImage,
+              category: article.category,
+              author: article.author,
+              saveOption: candidateBatch.saveOption,
+              scheduleTime: schedule_time,
+              publishedStartDateTime: candidateBatch.publishedStartDateTime,
+              metaTitle: article.metaTitle,
+              metaDescription: article.metaDescription,
+            });
+
+            await prismaClient.godmodeArticles.update({
+              where: { id: article.id },
               data: { isPublished: true } as any,
             });
-          }
 
-          console.log(`[publish-plugin] ✅ Article ${article.id} published successfully`);
-        } catch (error) {
-          console.error(`[publish-plugin] ❌ Background publish failed for article ${article.id}:`, error);
-          await prismaClient.godmodeArticles.update({
-            where: { id: article.id },
-            data: { publishFailed: true } as any,
-          }).catch(() => {});
+            console.log(`[publish-plugin] ✅ Article ${article.id} published successfully`);
+          } catch (error) {
+            console.error(
+              `[publish-plugin] ❌ Background publish failed for article ${article.id}:`,
+              error
+            );
+            await prismaClient.godmodeArticles
+              .update({
+                where: { id: article.id },
+                data: { publishFailed: true } as any,
+              })
+              .catch(() => {});
+          }
+        }
+
+        const pendingCount = await prismaClient.godmodeArticles.count({
+          where: {
+            batchId: candidateBatch.id,
+            status: 1,
+            isPublished: false,
+            publishFailed: false,
+          } as any,
+        });
+
+        if (pendingCount === 0) {
+          await prismaClient.batch.update({
+            where: { id: candidateBatch.id },
+            data: { isPublished: true } as any,
+          });
+          console.log(`[publish-plugin] ✅ Batch ${candidateBatch.id} fully published`);
         }
       })()
     );
 
     return NextResponse.json({
       success: true,
-      message: `Publishing article for batch ${candidateBatch.id} (background)`,
-      published: 1,
-      articleId: article.id,
+      message: `Publishing ${publishableArticles.length} article(s) for batch ${candidateBatch.id} (background)`,
+      published: publishableArticles.length,
+      articleIds: publishableArticles.map((a) => a.id),
       batchId: candidateBatch.id,
       websiteToPublish: candidateBatch.websiteToPublish,
     });

@@ -59,19 +59,32 @@ export async function GET() {
       pendingArticlesInDB.map(async (pa) => {
         const godmodeArticle = await prismaClient.godmodeArticles.findUnique({
           where: { id: pa.godmodeArticleId },
-          select: { content: true, id: true, model: true },
+          select: {
+            content: true,
+            featuredImage: true,
+            featuredImageRequired: true,
+            id: true,
+            model: true,
+          },
         });
+        const featuredImageRequired = godmodeArticle?.featuredImageRequired === 'Yes';
         return {
           pendingArticle: pa,
           godmodeArticleId: godmodeArticle?.id,
           hasContent: !!godmodeArticle?.content,
+          hasFeaturedImage:
+            !featuredImageRequired || !!godmodeArticle?.featuredImage,
           model: godmodeArticle?.model,
         };
       })
     );
 
-    const readyArticles = articlesWithContentStatus.filter(a => a.hasContent);
-    const notReadyArticles = articlesWithContentStatus.filter(a => !a.hasContent);
+    const readyArticles = articlesWithContentStatus.filter(
+      (a) => a.hasContent && a.hasFeaturedImage
+    );
+    const notReadyArticles = articlesWithContentStatus.filter(
+      (a) => !a.hasContent || !a.hasFeaturedImage
+    );
     const hasPreviouslyAttemptedAllPending = notReadyArticles.length > 0 && notReadyArticles.every(p => p.pendingArticle.cronRequest === 1);
 
     // If all pending articles have been attempted, force completion
