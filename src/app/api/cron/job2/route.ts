@@ -6,6 +6,17 @@ import { PendingGodmodeArticles } from "@prisma/client";
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+function isArticleReady(article: {
+  content: string | null;
+  featuredImage: string | null;
+  featuredImageRequired: string | null;
+}) {
+  const featuredImageRequired = article.featuredImageRequired === 'Yes';
+  const hasContent = !!article.content;
+  const hasFeaturedImage = !featuredImageRequired || !!article.featuredImage;
+  return hasContent && hasFeaturedImage;
+}
+
 export async function GET() {
   console.log("🕑 Vercel cron job ran!");
   const now = new Date();
@@ -38,15 +49,20 @@ export async function GET() {
       where: { 
         batchId: batch.id
       },
-      select: { content: true, id: true },
+      select: {
+        content: true,
+        featuredImage: true,
+        featuredImageRequired: true,
+        id: true,
+      },
     });
 
-    // Check if all articles have content
-    const allArticlesHaveContent = godmodeArticlesForBatch.length > 0 && 
-      godmodeArticlesForBatch.every(article => !!article.content);
+    const allArticlesReady =
+      godmodeArticlesForBatch.length > 0 &&
+      godmodeArticlesForBatch.every(isArticleReady);
 
-    if (allArticlesHaveContent) {
-      console.log(`Batch ${batch.id}: All ${godmodeArticlesForBatch.length} articles have content. Completing batch.`);
+    if (allArticlesReady) {
+      console.log(`Batch ${batch.id}: All ${godmodeArticlesForBatch.length} articles are ready. Completing batch.`);
       
       await prismaClient.$transaction(async (tx) => {
         // Update batch status
@@ -63,11 +79,14 @@ export async function GET() {
 
         // Update godmode articles status to 1 (completed)
         // Instead of using individual article IDs, update by batchId
+        const readyArticleIds = godmodeArticlesForBatch
+          .filter(isArticleReady)
+          .map((article) => article.id);
+
         await tx.godmodeArticles.updateMany({
-          where: { 
-            batchId: batch.id,
-            content: { not: null }, // Only update articles that have content
-            status: { not: 1 }      // Only update articles not already completed
+          where: {
+            id: { in: readyArticleIds },
+            status: { not: 1 },
           },
           data: { status: 1 },
         });
@@ -116,27 +135,36 @@ export async function GET() {
         }
       }
     } else {
-      // Some articles don't have content yet
-      const articlesWithContent = godmodeArticlesForBatch.filter(article => !!article.content);
-      console.log(`Batch ${batch.id}: ${articlesWithContent.length}/${godmodeArticlesForBatch.length} articles have content. Waiting for all articles to be ready.`);
+      const readyArticles = godmodeArticlesForBatch.filter(isArticleReady);
+      console.log(
+        `Batch ${batch.id}: ${readyArticles.length}/${godmodeArticlesForBatch.length} articles are ready. Waiting for all articles to be ready.`
+      );
     }
   }
 
-  // check all artilces with status 0 and have content
-  const articlesWithContent = await prismaClient.godmodeArticles.findMany({
+  // Check all articles with status 0 that are ready (content + featured image when required)
+  const candidateArticles = await prismaClient.godmodeArticles.findMany({
     where: {
       status: 0,
-      content: { not: null }
-    }
+      content: { not: null },
+    },
+    select: {
+      id: true,
+      content: true,
+      featuredImage: true,
+      featuredImageRequired: true,
+    },
   });
 
-  console.log(`Found ${articlesWithContent.length} articles with content and status 0`);
+  const readyArticles = candidateArticles.filter(isArticleReady);
 
-  for (const article of articlesWithContent) {
+  console.log(`Found ${readyArticles.length} ready articles with status 0`);
+
+  for (const article of readyArticles) {
     console.log(`Processing article ${article.id} and updating status to 1`);
     await prismaClient.godmodeArticles.update({
       where: { id: article.id },
-      data: { status: 1 }
+      data: { status: 1 },
     });
     console.log(`Updated status to 1 for article ${article.id}`);
   }
