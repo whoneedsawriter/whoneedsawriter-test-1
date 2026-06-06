@@ -12,5 +12,6 @@ export async function POST(req: NextRequest) {
     if (!optVerification) {
         return NextResponse.json({ success: false, message: "Invalid OTP" }, { status: 400 });
     }
+
     return NextResponse.json({ success: true, message: "OTP verified" }, { status: 200 });
 }

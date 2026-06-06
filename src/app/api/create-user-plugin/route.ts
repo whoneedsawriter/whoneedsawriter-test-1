@@ -6,36 +6,28 @@ export async function  POST(req: NextRequest) {
 
     try {
         const { email, name } = await req.json();
-        // check if user already exists
-        const userExists = await prismaClient.user.findFirst({
-          where: {
-            email: email,
-          },
+
+        const existingUser = await prismaClient.user.findFirst({
+          where: { email },
         });
-        if (userExists) {
-            return NextResponse.json({ success: false, message: "User already exists" }, { status: 400 });
-        }
-        
-        // transaction start
+
         const result = await prismaClient.$transaction(async (tx) => {
-           const user = await tx.user.create({
-              data: {
-                  email,
-                  name,
-              },
-           });
+          const userId = existingUser
+            ? existingUser.id
+            : (
+                await tx.user.create({
+                  data: { email, name },
+                })
+              ).id;
 
-          // create OTP
           const otp = Math.floor(100000 + Math.random() * 900000);
-            await tx.optVerification.create({
-              data: {
-                 userId: user.id,
-                 email: email,
-                 opt: otp,
-              },
-            });
 
-          // send email
+          await tx.optVerification.upsert({
+            where: { userId },
+            update: { opt: otp, status: false, email },
+            create: { userId, email, opt: otp },
+          });
+
           await sendTransactionalEmail({
             transactionalId: "cmo9ycy231zpc0i24smepuw9c",
             email: email,
@@ -43,15 +35,15 @@ export async function  POST(req: NextRequest) {
               otp: otp.toString(),
             },
           });
-          
-          return { userId: user.id };
+
+          return { userId };
        });
 
        if (result instanceof Error) {
            return NextResponse.json({ success: false, message: result.message }, { status: 500 });
        }
 
-       return NextResponse.json({ success: true, message: "User created successfully", userId: result.userId }, { status: 200 });
+       return NextResponse.json({ success: true, message: "OTP sent successfully", userId: result.userId }, { status: 200 });
    } catch (error) {
        console.error("Error creating user:", error);
        return NextResponse.json({ success: false, message: "User creation failed" }, { status: 500 });
