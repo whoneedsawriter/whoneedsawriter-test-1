@@ -16,6 +16,16 @@ type DeviceCreditPolicyResult =
   | "duplicate_device_free_credits_removed"
   | "duplicate_device_no_change";
 
+type DeviceSignupEligibilityResult = {
+  allowed: boolean;
+  reason:
+    | "no_device_cookie"
+    | "invalid_device_cookie"
+    | "device_not_claimed"
+    | "existing_account"
+    | "device_already_claimed";
+};
+
 function getDeviceCookieSecret() {
   return process.env.DEVICE_COOKIE_SECRET || process.env.NEXTAUTH_SECRET || "";
 }
@@ -67,11 +77,64 @@ function hashDeviceId(deviceId: string) {
     .digest("base64url");
 }
 
+function getVerifiedDeviceIdFromCookie() {
+  const deviceCookieValue = cookies().get(DEVICE_COOKIE_NAME)?.value;
+
+  return {
+    deviceCookieValue,
+    deviceId: verifySignedDeviceCookie(deviceCookieValue),
+  };
+}
+
+export async function getDeviceSignupEligibility(
+  email?: string | null
+): Promise<DeviceSignupEligibilityResult> {
+  const { deviceCookieValue, deviceId } = getVerifiedDeviceIdFromCookie();
+
+  if (!deviceCookieValue) {
+    return { allowed: true, reason: "no_device_cookie" };
+  }
+
+  if (!deviceId) {
+    return { allowed: false, reason: "invalid_device_cookie" };
+  }
+
+  const deviceIdHash = hashDeviceId(deviceId);
+  const deviceGrantDelegate = (prismaClient as any).freeCreditDeviceGrant;
+  const existingGrant = await deviceGrantDelegate.findUnique({
+    where: { deviceIdHash },
+  });
+
+  if (!existingGrant) {
+    return { allowed: true, reason: "device_not_claimed" };
+  }
+
+  if (email) {
+    const existingUser = await prismaClient.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+
+    if (existingUser) {
+      return { allowed: true, reason: "existing_account" };
+    }
+  }
+
+  await deviceGrantDelegate.update({
+    where: { deviceIdHash },
+    data: {
+      blockedAttempts: { increment: 1 },
+      lastSeenAt: new Date(),
+    },
+  });
+
+  return { allowed: false, reason: "device_already_claimed" };
+}
+
 export async function applyDeviceFreeCreditPolicy(
   userId: string
 ): Promise<DeviceCreditPolicyResult> {
-  const deviceCookieValue = cookies().get(DEVICE_COOKIE_NAME)?.value;
-  const deviceId = verifySignedDeviceCookie(deviceCookieValue);
+  const { deviceCookieValue, deviceId } = getVerifiedDeviceIdFromCookie();
 
   if (!deviceCookieValue) {
     return "no_device_cookie";

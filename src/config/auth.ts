@@ -12,7 +12,10 @@ import EmailProvider from "next-auth/providers/email";
 // more providers at https://next-auth.js.org/providers
 import { emailFrom } from "@/config";
 import { sendTransactionalEmail } from "@/libs/loops"
-import { applyDeviceFreeCreditPolicy } from "@/libs/device-free-credits";
+import {
+  applyDeviceFreeCreditPolicy,
+  getDeviceSignupEligibility,
+} from "@/libs/device-free-credits";
 
 export const authOptions: AuthOptions = {
   adapter: PrismaAdapter(prismaClient),
@@ -84,6 +87,16 @@ export const authOptions: AuthOptions = {
       }), */
   ],
   callbacks: {
+    signIn: async ({ user }) => {
+      const result = await getDeviceSignupEligibility(user.email);
+
+      if (!result.allowed) {
+        console.log(`Device signup blocked: ${result.reason}`);
+        return false;
+      }
+
+      return true;
+    },
     session: async ({ session, user }: { session: Session; user: User }) => {
       if (session?.user) {
         session.user.id = user.id;

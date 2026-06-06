@@ -21,6 +21,7 @@ import { useColorModeValues } from "@/hooks/useColorModeValues";
 import { TbArrowNarrowLeft } from "react-icons/tb";
 import { useRouter } from "next/navigation";
 import { Logo } from "@/components/atoms/Logo/Logo";
+import toast from "react-hot-toast";
 
 const SignUp = () => {
   const router = useRouter();
@@ -30,8 +31,33 @@ const SignUp = () => {
   const rightBoxColor = useColorModeValue("brand.300", "brand.700");
 
   const [isSigningUpWithGoogle, setSigningUpWithGoogle] = useState(false);
-  const onGoogleSignUp = () => {
+  const canStartSignup = async (signupEmail?: string) => {
+    const response = await fetch("/api/auth/device-signup-eligibility", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email: signupEmail || null }),
+    });
+    const data = await response.json();
+
+    if (!data.allowed) {
+      toast.error(data.message);
+      return false;
+    }
+
+    return true;
+  };
+
+  const onGoogleSignUp = async () => {
     setSigningUpWithGoogle(true);
+    const canSignup = await canStartSignup();
+
+    if (!canSignup) {
+      setSigningUpWithGoogle(false);
+      return;
+    }
+
     signIn("google", {
       callbackUrl: window?.location
         ? `${window.location.origin}/dashboard`
@@ -43,6 +69,13 @@ const SignUp = () => {
   const [email, setEmail] = useState("");
   const onEmailSignUp = async () => {
     setSigningUpWithEmail(true);
+    const canSignup = await canStartSignup(email);
+
+    if (!canSignup) {
+      setSigningUpWithEmail(false);
+      return;
+    }
+
     await signIn("email", {
       email,
       callbackUrl: window?.location
