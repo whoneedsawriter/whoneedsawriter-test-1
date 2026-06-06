@@ -259,6 +259,16 @@ model ApiKey {
   updatedAt DateTime @updatedAt
 }
 
+model FreeCreditDeviceGrant {
+  id              String   @id @default(cuid())
+  deviceIdHash    String   @unique
+  firstUserId     String
+  blockedAttempts Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  lastSeenAt      DateTime @default(now())
+}
+
 model BlogPost {
   id          String   @id @default(cuid())
   title       String

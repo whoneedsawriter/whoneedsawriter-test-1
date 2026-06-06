@@ -5,6 +5,7 @@ import { prismaClient } from "@/prisma/db";
 import { authOptions } from "@/config/auth";
 import { User } from "@prisma/client";
 import { ApiError } from "@/types/api.types";
+import { applyDeviceFreeCreditPolicy } from "@/libs/device-free-credits";
 
 export type UserResponse = {
   user: User;
@@ -35,6 +36,16 @@ export async function GET(): Promise<NextResponse<UserResponse | ApiError>> {
     }
 
     if (user) {
+      try {
+        const result = await applyDeviceFreeCreditPolicy(user.id);
+
+        if (result === "duplicate_device_free_credits_removed") {
+          user.freeCredits = 0;
+        }
+      } catch (error) {
+        console.error("Failed to apply device free-credit policy:", error);
+      }
+
       return NextResponse.json({ user }, { status: HttpStatusCode.Ok });
     }
   }

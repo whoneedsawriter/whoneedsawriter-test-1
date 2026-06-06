@@ -12,6 +12,7 @@ import EmailProvider from "next-auth/providers/email";
 // more providers at https://next-auth.js.org/providers
 import { emailFrom } from "@/config";
 import { sendTransactionalEmail } from "@/libs/loops"
+import { applyDeviceFreeCreditPolicy } from "@/libs/device-free-credits";
 
 export const authOptions: AuthOptions = {
   adapter: PrismaAdapter(prismaClient),
@@ -143,6 +144,13 @@ export const authOptions: AuthOptions = {
         where: { id: user.id },
         data: { age: 35 },
       });
+
+      try {
+        const result = await applyDeviceFreeCreditPolicy(user.id);
+        console.log(`Device free-credit policy result: ${result}`);
+      } catch (error) {
+        console.error("Failed to apply device free-credit policy:", error);
+      }
     },
 
   },
