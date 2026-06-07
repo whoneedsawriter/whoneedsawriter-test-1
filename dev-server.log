@@ -1,0 +1,82 @@
+
+> shipped@1.0.0 predev
+> npm run check-env
+
+
+> shipped@1.0.0 check-env
+> node ./scripts/check-env.js
+
+
+> shipped@1.0.0 dev
+> next dev
+
+  ▲ Next.js 14.2.3
+  - Local:        http://localhost:3000
+  - Environments: .env
+
+ ✓ Starting...
+ ✓ Ready in 9.6s
+ ○ Compiling / ...
+ ✓ Compiled / in 37.7s (3001 modules)
+ GET / 200 in 41471ms
+ ✓ Compiled in 6.3s (1378 modules)
+ ✓ Compiled in 3.2s (1364 modules)
+ ○ Compiling /api/auth/[...nextauth] ...
+ ✓ Compiled /api/auth/[...nextauth] in 1940ms (1631 modules)
+ ✓ Compiled (1988 modules)
+ GET /api/user 401 in 10796ms
+ GET /api/user 401 in 415ms
+ GET /api/sample-articles 200 in 12036ms
+ GET /api/auth/session 200 in 12219ms
+ GET /api/auth/session 200 in 117ms
+ GET /api/sample-articles 200 in 471ms
+ GET /api/user 401 in 131ms
+ GET /api/products 200 in 13036ms
+ GET /api/products 200 in 3082ms
+ GET /api/user 401 in 285ms
+ GET /api/user 401 in 22ms
+ GET /api/user 401 in 103ms
+ GET /api/products 200 in 995ms
+ GET /api/user 401 in 38ms
+ GET /api/user 401 in 377ms
+ GET /api/user 401 in 33ms
+ GET /api/products 200 in 876ms
+ GET /api/user 401 in 46ms
+ GET /api/products 200 in 892ms
+ GET /api/user 401 in 17ms
+ GET /api/user 401 in 33ms
+ GET /api/user 401 in 21ms
+ GET /api/user 401 in 29ms
+ GET /api/products 200 in 900ms
+ GET /api/user 401 in 22ms
+ GET /api/user 401 in 20ms
+ GET /api/user 401 in 22ms
+ GET /api/user 401 in 57ms
+ GET /api/products 200 in 844ms
+ GET /api/user 401 in 19ms
+ GET /api/user 401 in 26ms
+ GET /api/user 401 in 30ms
+ GET /api/user 401 in 88ms
+ GET /api/products 200 in 2114ms
+ GET /api/user 401 in 19ms
+ GET /api/user 401 in 26ms
+ GET /api/products 200 in 917ms
+ GET /api/user 401 in 48ms
+ GET /api/user 401 in 32ms
+ GET /api/products 200 in 931ms
+ GET /api/user 401 in 16ms
+ GET /api/products 200 in 937ms
+ GET /api/user 401 in 16ms
+ GET /api/user 401 in 41ms
+ GET /api/user 401 in 54ms
+ GET /api/products 200 in 1085ms
+ GET /api/user 401 in 34ms
+ GET /api/user 401 in 25ms
+ GET /api/user 401 in 22ms
+ GET /api/user 401 in 46ms
+ GET /api/products 200 in 1052ms
+ GET /api/user 401 in 37ms
+ GET /api/products 200 in 1005ms
+ GET /api/user 401 in 25ms
+ GET /api/user 401 in 31ms
+ ✓ Compiled in 4.8s (1378 modules)

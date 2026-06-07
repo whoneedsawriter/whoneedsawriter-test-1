@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     ...result,
     message: result.allowed
       ? "Signup allowed"
-      : "This device has already been used to create an account. Please log in with your existing account.",
+      : "An account already exists. Please log in with your existing account.",
   });
 
   if (deviceCookieValue && !cookies().get(DEVICE_COOKIE_NAME)?.value) {
