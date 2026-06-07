@@ -1,7 +1,7 @@
 import "server-only";
 
 import { cookies } from "next/headers";
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "crypto";
 import { prismaClient } from "@/prisma/db";
 import { DEVICE_COOKIE_NAME } from "@/libs/device-cookie";
 
@@ -38,6 +38,17 @@ function signDeviceId(deviceId: string) {
   }
 
   return createHmac("sha256", secret).update(deviceId).digest("base64url");
+}
+
+export function createSignedDeviceCookieValue() {
+  const deviceId = randomUUID();
+  const signature = signDeviceId(deviceId);
+
+  if (!signature) {
+    return null;
+  }
+
+  return `${deviceId}.${signature}`;
 }
 
 function verifySignedDeviceCookie(cookieValue?: string) {
@@ -86,14 +97,15 @@ function getVerifiedDeviceIdFromCookie() {
   };
 }
 
-export async function getDeviceSignupEligibility(
-  email?: string | null
+export async function getDeviceSignupEligibilityForCookie(
+  email: string | null | undefined,
+  deviceCookieValue?: string
 ): Promise<DeviceSignupEligibilityResult> {
-  const { deviceCookieValue, deviceId } = getVerifiedDeviceIdFromCookie();
-
   if (!deviceCookieValue) {
     return { allowed: true, reason: "no_device_cookie" };
   }
+
+  const deviceId = verifySignedDeviceCookie(deviceCookieValue);
 
   if (!deviceId) {
     return { allowed: false, reason: "invalid_device_cookie" };
@@ -131,14 +143,23 @@ export async function getDeviceSignupEligibility(
   return { allowed: false, reason: "device_already_claimed" };
 }
 
-export async function applyDeviceFreeCreditPolicy(
-  userId: string
-): Promise<DeviceCreditPolicyResult> {
-  const { deviceCookieValue, deviceId } = getVerifiedDeviceIdFromCookie();
+export async function getDeviceSignupEligibility(
+  email?: string | null
+): Promise<DeviceSignupEligibilityResult> {
+  const { deviceCookieValue } = getVerifiedDeviceIdFromCookie();
 
+  return getDeviceSignupEligibilityForCookie(email, deviceCookieValue);
+}
+
+export async function applyDeviceFreeCreditPolicyForCookie(
+  userId: string,
+  deviceCookieValue?: string
+): Promise<DeviceCreditPolicyResult> {
   if (!deviceCookieValue) {
     return "no_device_cookie";
   }
+
+  const deviceId = verifySignedDeviceCookie(deviceCookieValue);
 
   if (!deviceId) {
     return "invalid_device_cookie";
@@ -216,4 +237,12 @@ export async function applyDeviceFreeCreditPolicy(
   });
 
   return "duplicate_device_free_credits_removed";
+}
+
+export async function applyDeviceFreeCreditPolicy(
+  userId: string
+): Promise<DeviceCreditPolicyResult> {
+  const { deviceCookieValue } = getVerifiedDeviceIdFromCookie();
+
+  return applyDeviceFreeCreditPolicyForCookie(userId, deviceCookieValue);
 }

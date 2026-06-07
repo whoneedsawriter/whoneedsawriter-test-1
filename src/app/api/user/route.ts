@@ -5,7 +5,15 @@ import { prismaClient } from "@/prisma/db";
 import { authOptions } from "@/config/auth";
 import { User } from "@prisma/client";
 import { ApiError } from "@/types/api.types";
-import { applyDeviceFreeCreditPolicy } from "@/libs/device-free-credits";
+import {
+  applyDeviceFreeCreditPolicyForCookie,
+  createSignedDeviceCookieValue,
+} from "@/libs/device-free-credits";
+import {
+  DEVICE_COOKIE_MAX_AGE_SECONDS,
+  DEVICE_COOKIE_NAME,
+} from "@/libs/device-cookie";
+import { cookies } from "next/headers";
 
 export type UserResponse = {
   user: User;
@@ -36,8 +44,18 @@ export async function GET(): Promise<NextResponse<UserResponse | ApiError>> {
     }
 
     if (user) {
+      let deviceCookieValue = cookies().get(DEVICE_COOKIE_NAME)?.value;
+      const shouldSetDeviceCookie = !deviceCookieValue;
+
+      if (!deviceCookieValue) {
+        deviceCookieValue = createSignedDeviceCookieValue() || undefined;
+      }
+
       try {
-        const result = await applyDeviceFreeCreditPolicy(user.id);
+        const result = await applyDeviceFreeCreditPolicyForCookie(
+          user.id,
+          deviceCookieValue
+        );
 
         if (result === "duplicate_device_free_credits_removed") {
           user.freeCredits = 0;
@@ -46,7 +64,22 @@ export async function GET(): Promise<NextResponse<UserResponse | ApiError>> {
         console.error("Failed to apply device free-credit policy:", error);
       }
 
-      return NextResponse.json({ user }, { status: HttpStatusCode.Ok });
+      const response = NextResponse.json(
+        { user },
+        { status: HttpStatusCode.Ok }
+      );
+
+      if (shouldSetDeviceCookie && deviceCookieValue) {
+        response.cookies.set(DEVICE_COOKIE_NAME, deviceCookieValue, {
+          httpOnly: true,
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+          path: "/",
+          maxAge: DEVICE_COOKIE_MAX_AGE_SECONDS,
+        });
+      }
+
+      return response;
     }
   }
 
