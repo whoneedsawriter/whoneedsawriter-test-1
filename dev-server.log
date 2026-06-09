@@ -80,3 +80,10 @@
  GET /api/user 401 in 25ms
  GET /api/user 401 in 31ms
  ✓ Compiled in 4.8s (1378 modules)
+ GET /api/user 401 in 54ms
+ GET /api/user 401 in 19ms
+ GET /api/products 200 in 2285ms
+ GET /api/user 401 in 46ms
+ GET /api/user 401 in 39ms
+ GET /api/user 401 in 29ms
+ GET /api/products 200 in 1086ms

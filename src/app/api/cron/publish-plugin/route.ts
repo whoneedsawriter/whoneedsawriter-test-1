@@ -16,6 +16,7 @@ type PluginBatchForPublish = {
 type GodmodeArticleForPublish = {
   id: string;
   createdAt: Date;
+  keyword: string;
   title: string | null;
   content: string | null;
   featuredImage: string | null;
@@ -27,6 +28,7 @@ type GodmodeArticleForPublish = {
 
 async function publishToWordpress(params: {
   wordpressSite: string;
+  keyword: string;
   title: string;
   content: string;
   imageUrl: string | null;
@@ -40,6 +42,7 @@ async function publishToWordpress(params: {
 }) {
   const {
     wordpressSite,
+    keyword,
     title,
     content,
     imageUrl,
@@ -63,6 +66,7 @@ async function publishToWordpress(params: {
 
   const createPostUrl = `${wordpressSite}/wp-json/apf/v1/create-post`;
   const payload = {
+    keyword: keyword,
     title,
     content,
     image_url: imageUrl,
@@ -161,6 +165,7 @@ export async function GET() {
       select: {
         id: true,
         createdAt: true,
+        keyword: true,
         title: true,
         content: true,
         featuredImage: true,
@@ -222,6 +227,7 @@ export async function GET() {
     waitUntil(
       (async () => {
         for (const article of publishableArticles) {
+          const keyword = article.keyword || '';
           const title = (article.title ?? '').trim();
           const content = (article.content ?? '').trim();
           const slotIndex = slotIndexById.get(article.id) ?? 0;
@@ -236,6 +242,7 @@ export async function GET() {
 
             await publishToWordpress({
               wordpressSite,
+              keyword,
               title,
               content,
               imageUrl: article.featuredImage,
