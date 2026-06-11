@@ -140,7 +140,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       status: 200,
-      assignedBatch: batch_created.id
+      assignedBatch: batch_created.id,
+      name: batch_created.name,
+      batchName: batch_created.name,
     });
   } catch (error) {
     console.error("Error creating batch:", error);

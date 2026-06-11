@@ -7,6 +7,7 @@ export const revalidate = 0;
 
 type PluginBatchForPublish = {
   id: string;
+  name: string;
   websiteToPublish: string | null;
   saveOption: string | null;
   scheduleTime: string | null;
@@ -37,6 +38,10 @@ async function publishToWordpress(params: {
   saveOption: string | null;
   scheduleTime: string | null;
   publishedStartDateTime: Date | null;
+  batchId: string;
+  batchName: string;
+  articleId: string;
+  articleIndex: number;
   metaTitle: string | null;
   metaDescription: string | null;
 }) {
@@ -51,9 +56,15 @@ async function publishToWordpress(params: {
     saveOption,
     scheduleTime,
     publishedStartDateTime,
+    batchId,
+    batchName,
+    articleId,
+    articleIndex,
     metaTitle,
     metaDescription,
   } = params;
+
+  const idempotencyKey = `wnaw:${batchId}:${articleId}`;
 
   console.log('[publish-plugin] publishToWordpress args:', {
     scheduleTime,
@@ -76,6 +87,16 @@ async function publishToWordpress(params: {
     status: saveOption,
     schedule_time: scheduleTime,
     published_start_date_time: publishedStartDateTime?.toISOString() ?? null,
+    batch_id: batchId,
+    batchId,
+    batch_name: batchName,
+    batchName,
+    article_id: articleId,
+    articleId,
+    article_index: articleIndex,
+    articleIndex,
+    idempotency_key: idempotencyKey,
+    idempotencyKey,
     meta_title: metaTitle,
     meta_description: metaDescription,
     add_featured_image: true,
@@ -83,6 +104,9 @@ async function publishToWordpress(params: {
   };
 
   console.log(`[publish-plugin] POST ${createPostUrl} payload:`, {
+    article_id: payload.article_id,
+    batch_id: payload.batch_id,
+    idempotency_key: payload.idempotency_key,
     schedule_time: payload.schedule_time,
     published_start_date_time: payload.published_start_date_time,
   });
@@ -128,6 +152,7 @@ export async function GET() {
       orderBy: { createdAt: 'asc' },
       select: {
         id: true,
+        name: true,
         websiteToPublish: true,
         saveOption: true,
         scheduleTime: true,
@@ -234,6 +259,21 @@ export async function GET() {
           const schedule_time = buildScheduleTime(candidateBatch, slotIndex);
 
           try {
+            const claim = await prismaClient.godmodeArticles.updateMany({
+              where: {
+                id: article.id,
+                status: 1,
+                isPublished: false,
+                publishFailed: false,
+              } as any,
+              data: { publishFailed: true } as any,
+            });
+
+            if (claim.count === 0) {
+              console.log(`[publish-plugin] Article ${article.id} already claimed or processed; skipping`);
+              continue;
+            }
+
             console.log('[publish-plugin] calling publishToWordpress:', {
               batchId: candidateBatch.id,
               articleId: article.id,
@@ -251,13 +291,17 @@ export async function GET() {
               saveOption: candidateBatch.saveOption,
               scheduleTime: schedule_time,
               publishedStartDateTime: candidateBatch.publishedStartDateTime,
+              batchId: candidateBatch.id,
+              batchName: candidateBatch.name,
+              articleId: article.id,
+              articleIndex: slotIndex,
               metaTitle: article.metaTitle,
               metaDescription: article.metaDescription,
             });
 
             await prismaClient.godmodeArticles.update({
               where: { id: article.id },
-              data: { isPublished: true } as any,
+              data: { isPublished: true, publishFailed: false } as any,
             });
 
             console.log(`[publish-plugin] ✅ Article ${article.id} published successfully`);

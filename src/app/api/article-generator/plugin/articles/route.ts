@@ -4,6 +4,9 @@ import { NextRequest, NextResponse } from "next/server";
 type ApiError = { error: string };
 
 export type PluginJobArticleRow = {
+  id: string;
+  batchId: string;
+  articleIndex: number;
   keyword: string;
   title: string | null;
   status: number;
@@ -11,10 +14,25 @@ export type PluginJobArticleRow = {
   category: string | null;
   author: string | null;
   isPublished: boolean;
+  scheduleTime: string | null;
+  publishedStartDateTime: string | null;
+  batchName: string | null;
 };
 
 export type PluginJobsResponse = {
   articles: PluginJobArticleRow[];
+};
+
+type PluginArticleDbRow = Pick<
+  PluginJobArticleRow,
+  "id" | "batchId" | "keyword" | "title" | "status" | "model" | "category" | "author" | "isPublished"
+>;
+
+type PluginBatchScheduleRow = {
+  id: string;
+  name: string;
+  scheduleTime: string | null;
+  publishedStartDateTime: Date | null;
 };
 
 export async function GET(
@@ -41,12 +59,14 @@ export async function GET(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
     
-    let rows;
+    let rows: PluginArticleDbRow[];
     if (batchId) {
       rows = await prismaClient.godmodeArticles.findMany({
         where: { userId, batchId: batchId },
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
         select: {
+          id: true,
+          batchId: true,
           keyword: true,
           title: true,
           status: true,
@@ -61,6 +81,8 @@ export async function GET(
         where: { userId },
         orderBy: { createdAt: "desc" },
         select: {
+          id: true,
+          batchId: true,
           keyword: true,
           title: true,
           status: true,
@@ -72,8 +94,59 @@ export async function GET(
       });
     }
 
+    const batchIds = Array.from(new Set(rows.map((row) => row.batchId).filter(Boolean)));
+    const batchRows: PluginBatchScheduleRow[] = batchIds.length
+      ? await prismaClient.batch.findMany({
+          where: { id: { in: batchIds }, userId },
+          select: {
+            id: true,
+            name: true,
+            scheduleTime: true,
+            publishedStartDateTime: true,
+          },
+        })
+      : [];
+    const batchById = new Map(
+      batchRows.map((batch) => [
+        batch.id,
+        {
+          name: batch.name,
+          scheduleTime: batch.scheduleTime ?? null,
+          publishedStartDateTime: batch.publishedStartDateTime
+            ? batch.publishedStartDateTime.toISOString()
+            : null,
+        },
+      ])
+    );
 
-    return NextResponse.json({ articles: rows }, { status: 200 });
+    const orderedArticles: Array<Pick<PluginArticleDbRow, "id" | "batchId">> = batchIds.length
+      ? await prismaClient.godmodeArticles.findMany({
+          where: { userId, batchId: { in: batchIds } },
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+          select: { id: true, batchId: true },
+        })
+      : [];
+    const articleIndexById = new Map<string, number>();
+    const nextIndexByBatch = new Map<string, number>();
+    for (const article of orderedArticles) {
+      const nextIndex = nextIndexByBatch.get(article.batchId) ?? 0;
+      articleIndexById.set(article.id, nextIndex);
+      nextIndexByBatch.set(article.batchId, nextIndex + 1);
+    }
+
+    const articles: PluginJobArticleRow[] = rows.map((row) => {
+      const batch = batchById.get(row.batchId);
+
+      return {
+        ...row,
+        articleIndex: articleIndexById.get(row.id) ?? 0,
+        scheduleTime: batch?.scheduleTime ?? null,
+        publishedStartDateTime: batch?.publishedStartDateTime ?? null,
+        batchName: batch?.name ?? null,
+      };
+    });
+
+    return NextResponse.json({ articles }, { status: 200 });
   } catch (error) {
     console.error("Error fetching plugin jobs:", error);
     return NextResponse.json(

@@ -514,6 +514,10 @@ const ArticlesList: React.FC = () => {
             author: selectedAuthor || 1,
             saveOption: publishingSettings.saveOption,
             scheduleTime: scheduleTime,
+            articleId: article.id,
+            batchId: article.batchId,
+            batchName: batchName || undefined,
+            articleIndex: i,
             metaTitle: article.metaTitle || '',
             metaDescription: article.metaDescription || '',
             addMetaContent: publishingSettings.addMetaContent

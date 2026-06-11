@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { wordpressSites, title, content, imageUrl, category, author, saveOption, scheduleTime, metaTitle, metaDescription, addFeaturedImage, addMetaContent } = body;
+    const { wordpressSites, title, content, imageUrl, category, author, saveOption, scheduleTime, metaTitle, metaDescription, addFeaturedImage, addMetaContent, articleId, batchId, batchName, articleIndex } = body;
 
     const plugin = await prismaClient.plugin.findFirst({
       select: {
@@ -31,6 +31,16 @@ export async function POST(request: Request) {
               plugin_version: plugin?.version,
               status: saveOption,
               schedule_time: scheduleTime,
+              article_id: articleId,
+              articleId,
+              batch_id: batchId,
+              batchId,
+              batch_name: batchName,
+              batchName,
+              article_index: articleIndex,
+              articleIndex,
+              idempotency_key: batchId && articleId ? `wnaw:${batchId}:${articleId}` : undefined,
+              idempotencyKey: batchId && articleId ? `wnaw:${batchId}:${articleId}` : undefined,
               meta_title: metaTitle,
               meta_description: metaDescription,
               add_featured_image: addFeaturedImage,
