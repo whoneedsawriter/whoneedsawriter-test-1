@@ -1,9 +1,20 @@
+/**
+ * SaaS publish-plugin cron (Next.js App Router route).
+ *
+ * Copy to your SaaS app, e.g. `app/api/cron/publish-plugin/route.ts`
+ *
+ * Prisma (optional but recommended for parallel-cron safety):
+ *   publishClaimedAt DateTime?  // null = unclaimed; stale claims expire after 10 min
+ */
+
 import { prismaClient } from '@/prisma/db';
 import { NextResponse } from 'next/server';
 import { waitUntil } from '@vercel/functions';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+const STALE_CLAIM_MS = 10 * 60 * 1000;
 
 type PluginBatchForPublish = {
   id: string;
@@ -24,10 +35,25 @@ type GodmodeArticleForPublish = {
   author: string | null;
   metaTitle: string | null;
   metaDescription: string | null;
+  publishClaimedAt?: Date | null;
 };
+
+type CreatePostResponse = {
+  post_id?: number;
+  status?: string;
+  duplicate?: boolean;
+  message?: string;
+  code?: string;
+};
+
+type PublishResult =
+  | { ok: true; postId: number; duplicate: boolean }
+  | { ok: false; retryable: boolean; message: string };
 
 async function publishToWordpress(params: {
   wordpressSite: string;
+  batchId: string;
+  articleId: string;
   keyword: string;
   title: string;
   content: string;
@@ -39,9 +65,12 @@ async function publishToWordpress(params: {
   publishedStartDateTime: Date | null;
   metaTitle: string | null;
   metaDescription: string | null;
-}) {
+  pluginVersion: string | null;
+}): Promise<PublishResult> {
   const {
     wordpressSite,
+    batchId,
+    articleId,
     keyword,
     title,
     content,
@@ -53,26 +82,21 @@ async function publishToWordpress(params: {
     publishedStartDateTime,
     metaTitle,
     metaDescription,
+    pluginVersion,
   } = params;
 
-  console.log('[publish-plugin] publishToWordpress args:', {
-    scheduleTime,
-    publishedStartDateTime: publishedStartDateTime?.toISOString() ?? null,
-  });
-
-  const plugin = await prismaClient.plugin.findFirst({
-    select: { version: true },
-  });
-
-  const createPostUrl = `${wordpressSite}/wp-json/apf/v1/create-post`;
+  const createPostUrl = `${wordpressSite.replace(/\/$/, '')}/wp-json/apf/v1/create-post`;
   const payload = {
-    keyword: keyword,
+    batchId,
+    batch_id: batchId,
+    articleId,
+    keyword,
     title,
     content,
     image_url: imageUrl,
     category,
     author,
-    plugin_version: plugin?.version,
+    plugin_version: pluginVersion,
     status: saveOption,
     schedule_time: scheduleTime,
     published_start_date_time: publishedStartDateTime?.toISOString() ?? null,
@@ -82,24 +106,69 @@ async function publishToWordpress(params: {
     add_meta_content: true,
   };
 
-  console.log(`[publish-plugin] POST ${createPostUrl} payload:`, {
+  console.log(`[publish-plugin] POST ${createPostUrl}`, {
+    batchId,
+    articleId,
+    keyword,
     schedule_time: payload.schedule_time,
     published_start_date_time: payload.published_start_date_time,
   });
 
-  const response = await fetch(createPostUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
+  let response: Response;
+  try {
+    response = await fetch(createPostUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      retryable: true,
+      message: error instanceof Error ? error.message : 'Network error calling WordPress',
+    };
+  }
+
+  const data = (await response.json().catch(() => ({}))) as CreatePostResponse;
+
+  if (response.status === 409) {
+    return {
+      ok: false,
+      retryable: true,
+      message: data?.message || 'Publish already in progress on WordPress',
+    };
+  }
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    if (errorData?.code === 'plugin_version_outdated') {
-      throw new Error(errorData?.message || 'Plugin version is outdated');
+    if (data?.code === 'plugin_version_outdated') {
+      return {
+        ok: false,
+        retryable: false,
+        message: data?.message || 'Plugin version is outdated',
+      };
     }
-    throw new Error(errorData?.message || `Failed to publish to ${wordpressSite}`);
+
+    return {
+      ok: false,
+      retryable: false,
+      message: data?.message || `Failed to publish to ${wordpressSite} (${response.status})`,
+    };
   }
+
+  const postId = Number(data?.post_id ?? 0);
+  if (!Number.isFinite(postId) || postId <= 0) {
+    return {
+      ok: false,
+      retryable: true,
+      message: 'WordPress responded OK but no post_id was returned',
+    };
+  }
+
+  return {
+    ok: true,
+    postId,
+    duplicate: Boolean(data?.duplicate),
+  };
 }
 
 function buildScheduleTime(batch: PluginBatchForPublish, slotIndex: number): string | null {
@@ -115,8 +184,198 @@ function buildScheduleTime(batch: PluginBatchForPublish, slotIndex: number): str
   return `+${slotIndex * 7} days`;
 }
 
+function isClaimStale(claimedAt: Date | null | undefined): boolean {
+  if (!claimedAt) {
+    return true;
+  }
+  return Date.now() - claimedAt.getTime() > STALE_CLAIM_MS;
+}
+
+/**
+ * Atomically claim an article so overlapping cron invocations do not publish twice.
+ * Requires `publishClaimedAt DateTime?` on godmodeArticles (recommended).
+ */
+async function tryClaimArticle(articleId: string): Promise<boolean> {
+  const staleBefore = new Date(Date.now() - STALE_CLAIM_MS);
+
+  const claimed = await prismaClient.godmodeArticles.updateMany({
+    where: {
+      id: articleId,
+      isPublished: false,
+      publishFailed: false,
+      OR: [{ publishClaimedAt: null }, { publishClaimedAt: { lt: staleBefore } }],
+    } as any,
+    data: { publishClaimedAt: new Date() } as any,
+  });
+
+  return claimed.count > 0;
+}
+
+async function releaseArticleClaim(articleId: string): Promise<void> {
+  await prismaClient.godmodeArticles
+    .update({
+      where: { id: articleId },
+      data: { publishClaimedAt: null } as any,
+    })
+    .catch(() => {});
+}
+
+async function markArticlePublished(articleId: string): Promise<boolean> {
+  const updated = await prismaClient.godmodeArticles.updateMany({
+    where: {
+      id: articleId,
+      isPublished: false,
+    } as any,
+    data: {
+      isPublished: true,
+      publishClaimedAt: null,
+    } as any,
+  });
+
+  return updated.count > 0;
+}
+
+async function markArticlePublishFailed(articleId: string, message: string): Promise<void> {
+  console.error(`[publish-plugin] marking publishFailed article=${articleId}: ${message}`);
+
+  await prismaClient.godmodeArticles
+    .update({
+      where: { id: articleId },
+      data: {
+        publishFailed: true,
+        publishClaimedAt: null,
+      } as any,
+    })
+    .catch(() => {});
+}
+
+async function isArticleStillPending(articleId: string): Promise<boolean> {
+  const row = await prismaClient.godmodeArticles.findFirst({
+    where: {
+      id: articleId,
+      isPublished: false,
+      publishFailed: false,
+    } as any,
+    select: { id: true },
+  });
+
+  return Boolean(row);
+}
+
+async function publishArticlesInBackground(params: {
+  batch: PluginBatchForPublish;
+  wordpressSite: string;
+  articles: GodmodeArticleForPublish[];
+  slotIndexById: Map<string, number>;
+  pluginVersion: string | null;
+}): Promise<void> {
+  const { batch, wordpressSite, articles, slotIndexById, pluginVersion } = params;
+
+  for (const article of articles) {
+    const title = (article.title ?? '').trim();
+    const content = (article.content ?? '').trim();
+    const keyword = (article.keyword ?? '').trim();
+
+    if (!title || !content) {
+      console.log(`[publish-plugin] skip article ${article.id}: missing title/content`);
+      continue;
+    }
+
+    if (!(await isArticleStillPending(article.id))) {
+      console.log(`[publish-plugin] skip article ${article.id}: already handled`);
+      continue;
+    }
+
+    const hasClaimColumn = Object.prototype.hasOwnProperty.call(article, 'publishClaimedAt');
+    let claimed = true;
+
+    if (hasClaimColumn) {
+      claimed = await tryClaimArticle(article.id);
+      if (!claimed) {
+        console.log(`[publish-plugin] skip article ${article.id}: claimed by another run`);
+        continue;
+      }
+    }
+
+    const slotIndex = slotIndexById.get(article.id) ?? 0;
+    const scheduleTime = buildScheduleTime(batch, slotIndex);
+
+    try {
+      console.log('[publish-plugin] publishing', {
+        batchId: batch.id,
+        articleId: article.id,
+        keyword,
+        scheduleTime,
+      });
+
+      const result = await publishToWordpress({
+        wordpressSite,
+        batchId: batch.id,
+        articleId: article.id,
+        keyword,
+        title,
+        content,
+        imageUrl: article.featuredImage,
+        category: article.category,
+        author: article.author,
+        saveOption: batch.saveOption,
+        scheduleTime,
+        publishedStartDateTime: batch.publishedStartDateTime,
+        metaTitle: article.metaTitle,
+        metaDescription: article.metaDescription,
+        pluginVersion,
+      });
+
+      if (!result.ok) {
+        if (result.retryable) {
+          if (hasClaimColumn) {
+            await releaseArticleClaim(article.id);
+          }
+          console.warn(`[publish-plugin] retryable failure article ${article.id}: ${result.message}`);
+        } else {
+          await markArticlePublishFailed(article.id, result.message);
+        }
+        continue;
+      }
+
+      const marked = await markArticlePublished(article.id);
+      if (!marked) {
+        console.log(
+          `[publish-plugin] article ${article.id} already marked published (post_id=${result.postId}, duplicate=${result.duplicate})`
+        );
+      } else {
+        console.log(
+          `[publish-plugin] article ${article.id} published post_id=${result.postId} duplicate=${result.duplicate}`
+        );
+      }
+    } catch (error) {
+      console.error(`[publish-plugin] unexpected error article ${article.id}:`, error);
+      if (hasClaimColumn) {
+        await releaseArticleClaim(article.id);
+      }
+    }
+  }
+
+  const pendingCount = await prismaClient.godmodeArticles.count({
+    where: {
+      batchId: batch.id,
+      status: 1,
+      isPublished: false,
+      publishFailed: false,
+    } as any,
+  });
+
+  if (pendingCount === 0) {
+    await prismaClient.batch.update({
+      where: { id: batch.id },
+      data: { isPublished: true } as any,
+    });
+    console.log(`[publish-plugin] batch ${batch.id} fully published`);
+  }
+}
+
 export async function GET() {
-  console.log('🕑 Publish plugin cron job ran!');
+  console.log('[publish-plugin] cron started');
 
   try {
     const candidateBatch = (await prismaClient.batch.findFirst({
@@ -154,6 +413,10 @@ export async function GET() {
       );
     }
 
+    const plugin = await prismaClient.plugin.findFirst({
+      select: { version: true },
+    });
+
     const articles = (await prismaClient.godmodeArticles.findMany({
       where: {
         batchId: candidateBatch.id,
@@ -173,6 +436,7 @@ export async function GET() {
         author: true,
         metaTitle: true,
         metaDescription: true,
+        publishClaimedAt: true,
       } as any,
     })) as unknown as GodmodeArticleForPublish[];
 
@@ -201,109 +465,39 @@ export async function GET() {
     const slotIndexById = new Map(orderedStatusOne.map((row, index) => [row.id, index]));
 
     const publishableArticles = articles.filter(
-      (a) => (a.title ?? '').trim() && (a.content ?? '').trim()
+      (article) => (article.title ?? '').trim() && (article.content ?? '').trim()
     );
 
     if (publishableArticles.length === 0) {
-      console.log(
-        `[publish-plugin] Batch ${candidateBatch.id}: ${articles.length} pending article(s) missing title/content`
-      );
       return NextResponse.json({
         success: true,
-        message: `All pending articles are missing valid title/content; skipped, will retry next run`,
+        message: 'All pending articles are missing valid title/content; will retry next run',
         published: 0,
-        articleIds: articles.map((a) => a.id),
+        articleIds: articles.map((article) => article.id),
         batchId: candidateBatch.id,
       });
     }
 
-    console.log('[publish-plugin] queuing publish for batch:', {
-      batchId: candidateBatch.id,
-      articleCount: publishableArticles.length,
-      publishedStartDateTime: candidateBatch.publishedStartDateTime?.toISOString() ?? null,
-    });
-
-    // Publish all articles in background — response returns immediately
     waitUntil(
-      (async () => {
-        for (const article of publishableArticles) {
-          const keyword = article.keyword || '';
-          const title = (article.title ?? '').trim();
-          const content = (article.content ?? '').trim();
-          const slotIndex = slotIndexById.get(article.id) ?? 0;
-          const schedule_time = buildScheduleTime(candidateBatch, slotIndex);
-
-          try {
-            console.log('[publish-plugin] calling publishToWordpress:', {
-              batchId: candidateBatch.id,
-              articleId: article.id,
-              scheduleTime: schedule_time,
-            });
-
-            await publishToWordpress({
-              wordpressSite,
-              keyword,
-              title,
-              content,
-              imageUrl: article.featuredImage,
-              category: article.category,
-              author: article.author,
-              saveOption: candidateBatch.saveOption,
-              scheduleTime: schedule_time,
-              publishedStartDateTime: candidateBatch.publishedStartDateTime,
-              metaTitle: article.metaTitle,
-              metaDescription: article.metaDescription,
-            });
-
-            await prismaClient.godmodeArticles.update({
-              where: { id: article.id },
-              data: { isPublished: true } as any,
-            });
-
-            console.log(`[publish-plugin] ✅ Article ${article.id} published successfully`);
-          } catch (error) {
-            console.error(
-              `[publish-plugin] ❌ Background publish failed for article ${article.id}:`,
-              error
-            );
-            await prismaClient.godmodeArticles
-              .update({
-                where: { id: article.id },
-                data: { publishFailed: true } as any,
-              })
-              .catch(() => {});
-          }
-        }
-
-        const pendingCount = await prismaClient.godmodeArticles.count({
-          where: {
-            batchId: candidateBatch.id,
-            status: 1,
-            isPublished: false,
-            publishFailed: false,
-          } as any,
-        });
-
-        if (pendingCount === 0) {
-          await prismaClient.batch.update({
-            where: { id: candidateBatch.id },
-            data: { isPublished: true } as any,
-          });
-          console.log(`[publish-plugin] ✅ Batch ${candidateBatch.id} fully published`);
-        }
-      })()
+      publishArticlesInBackground({
+        batch: candidateBatch,
+        wordpressSite,
+        articles: publishableArticles,
+        slotIndexById,
+        pluginVersion: plugin?.version ?? null,
+      })
     );
 
     return NextResponse.json({
       success: true,
       message: `Publishing ${publishableArticles.length} article(s) for batch ${candidateBatch.id} (background)`,
-      published: publishableArticles.length,
-      articleIds: publishableArticles.map((a) => a.id),
+      queued: publishableArticles.length,
+      articleIds: publishableArticles.map((article) => article.id),
       batchId: candidateBatch.id,
       websiteToPublish: candidateBatch.websiteToPublish,
     });
   } catch (error) {
-    console.error('❌ Publish plugin cron failed:', error);
+    console.error('[publish-plugin] cron failed:', error);
     return NextResponse.json(
       {
         success: false,
