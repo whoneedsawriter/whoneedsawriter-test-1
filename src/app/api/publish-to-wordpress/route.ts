@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     const failedSites = results.filter(result => !result.success);
     
     if (failedSites.length > 0) {
-      // Get the error message from failed sites, prioritizing plugin version errors
+      // Get the error message from failed sites, prioritizing plugin version 
       const errorMessage = failedSites[0]?.message || 'Failed to publish';
       
       return NextResponse.json({
