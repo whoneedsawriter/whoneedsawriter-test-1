@@ -77,7 +77,7 @@ export async function POST(request: Request) {
       },
    });
 
-    return NextResponse.json({ status: 200, assignedBatch: batch_created.id });
+    return NextResponse.json({ status: 200, assignedBatch: batch_created.id, batchName: finalBatchName });
   } catch (error) {
     console.error("Error creating batch:", error);
     return NextResponse.json(
