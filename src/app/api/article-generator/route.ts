@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/config/auth";
 import { OpenAI } from "openai";
+import { refundSpentCredits, spendCredits } from "@/libs/credits";
+import { isTrialActive } from "@/libs/trial";
 
 // Function to get all articles for a user
 async function getAllArticles(userId: string) {
@@ -109,9 +111,43 @@ export async function POST(request: Request) {
     if(is_godmode){
         // Split the text into individual keywords
         const keywords = text.split('\n').filter(keyword => keyword.trim() !== '');
+        const creditCostPerArticle = getCreditCost(model || '1a-pro');
+        const totalCreditCost = parseFloat((keywords.length * creditCostPerArticle).toFixed(1));
+        const spendKey = `generation_spend:${userId}:${batchId}`;
+        const userPlan = await prismaClient.userPlan.findUnique({ where: { userId } });
+
+        if (isTrialActive(userPlan)) {
+          const activeTrialGeneration = await prismaClient.godmodeArticles.count({
+            where: {
+              userId,
+              status: 0,
+              requestProcess: { in: [0, 1] },
+            },
+          });
+
+          if (activeTrialGeneration > 0) {
+            return NextResponse.json(
+              { error: "Trial users can run 1 generation at a time." },
+              { status: 429 }
+            );
+          }
+        }
+
+        await spendCredits({
+          userId,
+          amount: totalCreditCost,
+          idempotencyKey: spendKey,
+          metadata: {
+            batchId,
+            model,
+            keywordCount: keywords.length,
+          },
+        });
+
         const articles = [];
 
-        for (const keyword of keywords) {
+        try {
+          for (const keyword of keywords) {
              let article = await prismaClient.godmodeArticles.create({
                 data: {
                     userId,
@@ -143,36 +179,20 @@ export async function POST(request: Request) {
             });
 
             articles.push(article);
+          }
+        } catch (error) {
+          await refundSpentCredits({
+            userId,
+            spendIdempotencyKey: spendKey,
+            refundIdempotencyKey: `generation_refund:${userId}:${batchId}:create-failed`,
+            metadata: {
+              batchId,
+              model,
+              reason: "article_create_failed",
+            },
+          });
+          throw error;
         }
-
-        // Calculate total credit cost based on model and number of keywords
-        const creditCostPerArticle = getCreditCost(model || '1a-pro');
-        const totalCreditCost = parseFloat((no_of_keyword * creditCostPerArticle).toFixed(1));
-
-        console.log(totalCreditCost);
-        console.log(no_of_keyword);
-        console.log(creditCostPerArticle);
-        console.log(balance_type);
-
-        // Get current user balance and calculate new balance to avoid floating-point errors
-        const user = await prismaClient.user.findUnique({ where: { id: userId } });
-        if (!user) {
-          return NextResponse.json({ error: "User not found" }, { status: 404 });
-        }
-        
-        const currentBalance = Number(
-          user[balance_type as keyof typeof user] as unknown
-        );
-        const newBalanceRaw = (Number.isFinite(currentBalance) ? currentBalance : 0) - totalCreditCost;
-        const newBalanceRounded = parseFloat(newBalanceRaw.toFixed(1));
-        const newBalance = Object.is(Math.max(0, newBalanceRounded), -0) ? 0 : Math.max(0, newBalanceRounded);
-        
-        await prismaClient.user.update({
-          where: { id: userId },
-          data: {
-            [balance_type]: newBalance,
-          },
-        });
 
         // Respond to the client after all webhooks finish
         return NextResponse.json({ status: 200, articles });
@@ -180,6 +200,12 @@ export async function POST(request: Request) {
 
   } catch (error) {
     console.error("Error creating article:", error);
+    if (error instanceof Error && error.message === "Insufficient credits") {
+      return NextResponse.json(
+        { error: "Insufficient credits" },
+        { status: 402 }
+      );
+    }
     return NextResponse.json(
       { error: "Failed to create article" },
       { status: 500 }

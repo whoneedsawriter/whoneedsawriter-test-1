@@ -9,8 +9,8 @@ configure your website URL on Supabase https://docs.shipped.club/features/supaba
 export const websiteUrl = process.env.WEBSITE_URL || "https://whoneedsawriter.com";
 
 export const supportEmail = "support@whoneedsawriter.com";
-export const openGraphImageUrl = "https://whoneedsawriter.com/images/og-image.jpg";
-export const blogOpenGraphImageUrl = "https://whoneedsawriter.com/images/og-image.jpg";
+export const openGraphImageUrl = "https://whoneedsawriter.com/images/og-image.png";
+export const blogOpenGraphImageUrl = "https://whoneedsawriter.com/images/og-image.png";
 
 // the users will be redirected to this page after sign in
 export const signInCallbackUrl = "/article-generator";

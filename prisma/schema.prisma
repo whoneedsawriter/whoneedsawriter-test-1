@@ -109,6 +109,7 @@ model UserPlan {
   id                   String    @id @default(cuid())
   userId               String    @unique
   planId               Int?
+  provider             String?
   lemonOrderId         String?
   lemonProductId       String?
   lemonVariantId       String?
@@ -121,11 +122,46 @@ model UserPlan {
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
   validUntil           DateTime?
+  trialStartedAt       DateTime?
+  trialEndsAt          DateTime?
+  trialCreditsGranted  Float     @default(0)
+  trialCreditsUsed     Float     @default(0)
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean   @default(false)
+  billingTermsAcceptedAt DateTime?
+  billingTermsVersion  String?
+  paymentMethodFingerprint String?
   cancelUrl            String?
   updateUrl            String?
   status               String?
   cancelled            Int       @default(0)
   User                 User[]
+}
+
+model CreditLedger {
+  id             String   @id @default(cuid())
+  userId         String
+  eventType      String
+  amount         Float
+  balanceBucket  String
+  idempotencyKey String   @unique
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([eventType])
+}
+
+model TrialUsage {
+  id                       String   @id @default(cuid())
+  userId                   String
+  email                    String   @unique
+  paymentMethodFingerprint String?  @unique
+  provider                 String
+  subscriptionId           String?
+  createdAt                DateTime @default(now())
+
+  @@index([userId])
 }
 
 model UserOnboarding {

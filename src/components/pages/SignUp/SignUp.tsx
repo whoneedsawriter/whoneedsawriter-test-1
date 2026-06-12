@@ -19,14 +19,24 @@ import { brandName } from "@/config";
 import Image from "next/image";
 import { useColorModeValues } from "@/hooks/useColorModeValues";
 import { TbArrowNarrowLeft } from "react-icons/tb";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Logo } from "@/components/atoms/Logo/Logo";
 import toast from "react-hot-toast";
+import { trackFunnelEvent } from "@/libs/analytics";
 
 const SignUp = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { primaryTextColor, secondaryTextColor, borderColor, baseTextColor } =
     useColorModeValues();
+  const planId = searchParams.get("planId");
+  const trialRequested = searchParams.get("trial") === "1";
+  const callbackUrl =
+    typeof window !== "undefined" && planId
+      ? `${window.location.origin}/checkout/trial?planId=${planId}`
+      : typeof window !== "undefined"
+        ? `${window.location.origin}/dashboard`
+        : "";
 
   const rightBoxColor = useColorModeValue("brand.300", "brand.700");
 
@@ -51,6 +61,7 @@ const SignUp = () => {
 
   const onGoogleSignUp = async () => {
     setSigningUpWithGoogle(true);
+    trackFunnelEvent("signup_started", { method: "google", planId });
     const canSignup = await canStartSignup();
 
     if (!canSignup) {
@@ -59,9 +70,7 @@ const SignUp = () => {
     }
 
     signIn("google", {
-      callbackUrl: window?.location
-        ? `${window.location.origin}/dashboard`
-        : "",
+      callbackUrl,
     });
   };
 
@@ -69,6 +78,7 @@ const SignUp = () => {
   const [email, setEmail] = useState("");
   const onEmailSignUp = async () => {
     setSigningUpWithEmail(true);
+    trackFunnelEvent("signup_started", { method: "email", planId });
     const canSignup = await canStartSignup(email);
 
     if (!canSignup) {
@@ -78,9 +88,7 @@ const SignUp = () => {
 
     await signIn("email", {
       email,
-      callbackUrl: window?.location
-        ? `${window.location.origin}/dashboard`
-        : "",
+      callbackUrl,
     });
     setSigningUpWithEmail(false);
   };
@@ -157,8 +165,13 @@ const SignUp = () => {
             w="100%"
             mb={[0, null, null, "16px"]}
           >
-            Sign up to {brandName}
+            {trialRequested ? "Start your 7-day trial" : `Sign up to ${brandName}`}
           </Text>
+          {trialRequested && (
+            <Text fontSize="13px" color={secondaryTextColor} mb="4px" lineHeight="20px">
+              5 credits included. Then your selected plan price/month. Cancel anytime. Card required before the trial starts.
+            </Text>
+          )}
 
           <Button
             my="24px"

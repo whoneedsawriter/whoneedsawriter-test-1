@@ -31,10 +31,10 @@ export const FAQquestion = ({ question, answer }: FAQQuestionProps) => {
           </Box>
           <AccordionIcon />
         </AccordionButton>
-        <AccordionPanel py="16px">
-          <Text textAlign="left">{answer}</Text>
-        </AccordionPanel>
       </h2>
+      <AccordionPanel py="16px">
+        <Text textAlign="left">{answer}</Text>
+      </AccordionPanel>
     </AccordionItem>
   );
 };

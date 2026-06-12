@@ -115,6 +115,7 @@ export const Account = () => {
     const [deleteConfirmation, setDeleteConfirmation] = useState<string>('');
     const [isUpdatingEmail, setIsUpdatingEmail] = useState<boolean>(false);
     const [isDeletingAccount, setIsDeletingAccount] = useState<boolean>(false);
+    const [isCancellingSubscription, setIsCancellingSubscription] = useState<boolean>(false);
 
     // Filter plans based on country (same logic as ArticleGenerator)
     useEffect(() => {
@@ -203,6 +204,25 @@ export const Account = () => {
           toast.error("You don't have an active subscription");
         }
       };
+
+    const onCancelSubscription = async () => {
+      setIsCancellingSubscription(true);
+      try {
+        const response = await fetch("/api/subscriptions/cancel", {
+          method: "POST",
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.error || "Unable to cancel subscription");
+        }
+        toast.success("Cancellation recorded. Your articles remain available.");
+        window.location.reload();
+      } catch (error: any) {
+        toast.error(error.message || "Unable to cancel subscription");
+      } finally {
+        setIsCancellingSubscription(false);
+      }
+    };
 
     // Payment handler for lifetime plans (same as ArticleGenerator)
     const payStripeLifetime = async (priceId: string, name: string) => {
@@ -394,6 +414,16 @@ export const Account = () => {
                   <div>
                     { planData?.SubscriptionPlan ? (
                       <>
+                        {planData.SubscriptionPlan.status === "trialing" && (
+                          <div className="mt-4 rounded-lg border border-cyan-300 bg-cyan-50 p-4 text-sm text-slate-700">
+                            Trial active: {Math.max(0, Math.ceil((new Date(planData.SubscriptionPlan.trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} days left. Trial credits: {Math.max(0, Number(planData.SubscriptionPlan.trialCreditsGranted || 5) - Number(planData.SubscriptionPlan.trialCreditsUsed || 0))} / {Number(planData.SubscriptionPlan.trialCreditsGranted || 5)} remaining.
+                          </div>
+                        )}
+                        {planData.SubscriptionPlan.status === "canceled" && (
+                          <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-slate-700">
+                            Trial canceled. Access available until {planData.SubscriptionPlan.validUntil ? new Date(planData.SubscriptionPlan.validUntil).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "the end of your current period"}.
+                          </div>
+                        )}
                         {/* Plan Details and Buttons */}
                         <div className="mt-4 flex justify-between items-start gap-6">
                           {/* Plan Details - Left Side */}
@@ -434,7 +464,9 @@ export const Account = () => {
                                 <span className="ml-2 font-semibold text-slate-500">Monthly</span>
                               </div>
                               <div className="col-span-2">
-                                <span className="text-slate-500 font-medium">Next bill on:</span>
+                                <span className="text-slate-500 font-medium">
+                                  {planData.SubscriptionPlan.status === "trialing" ? "Your plan starts on:" : "Next bill on:"}
+                                </span>
                                 <span className="ml-2 font-semibold text-slate-500">
                                   {planData.SubscriptionPlan.validUntil ? 
                                     new Date(planData.SubscriptionPlan.validUntil).toLocaleDateString('en-US', { 
@@ -459,9 +491,16 @@ export const Account = () => {
                             </button>
                             <button 
                               className="bg-red-500 text-white border-none rounded-lg py-2 px-4 font-semibold cursor-pointer hover:bg-red-600 transition-colors" 
+                              onClick={() => onCancelSubscription()}
+                              disabled={isCancellingSubscription}
+                            >
+                              {isCancellingSubscription ? "Canceling..." : planData.SubscriptionPlan.status === "trialing" ? "Cancel trial" : "Cancel plan"}
+                            </button>
+                            <button
+                              className="bg-transparent text-slate-500 border border-slate-300 rounded-lg py-2 px-4 font-semibold cursor-pointer hover:bg-slate-50 transition-colors"
                               onClick={() => onLoadCustomerPortal()}
                             >
-                              Cancel plan
+                              Billing portal
                             </button>
                           </div>
                         </div>

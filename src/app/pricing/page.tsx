@@ -7,6 +7,9 @@ import { brandName } from "@/config";
 export const metadata = {
     title: `Pricing | ${brandName}`,
     description: `Pricing | ${brandName}`,
+    alternates: {
+      canonical: "/pricing",
+    },
   };
 
 function normalizeSearchParam(

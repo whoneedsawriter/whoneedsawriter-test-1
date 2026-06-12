@@ -120,12 +120,15 @@ export async function GET() {
             
             console.log(`Batch ${batch.id}: Refunding ${failedCount} failed articles (model: ${failedModel || 'unknown'}, ${creditPerArticle} credits each) = ${totalRefundCredits} total credits`);
             
+            let refundBucket = "freeCredits";
             if (user.monthyPlan > 0) {
+              refundBucket = "monthyBalance";
               await tx.user.update({
                 where: { id: batch.userId },
                 data: { monthyBalance: user.monthyBalance + totalRefundCredits }
               });
             } else if (user.lifetimePlan > 0) {
+              refundBucket = "lifetimeBalance";
               await tx.user.update({
                 where: { id: batch.userId },
                 data: { lifetimeBalance: user.lifetimeBalance + totalRefundCredits }
@@ -136,6 +139,24 @@ export async function GET() {
                 data: { freeCredits: user.freeCredits + totalRefundCredits }
               });
             }
+            await tx.creditLedger.upsert({
+              where: {
+                idempotencyKey: `generation_refund:${batch.userId}:${batch.id}:failed-generation`,
+              },
+              update: {},
+              create: {
+                userId: batch.userId,
+                eventType: "generation_refund",
+                amount: totalRefundCredits,
+                balanceBucket: refundBucket,
+                idempotencyKey: `generation_refund:${batch.userId}:${batch.id}:failed-generation`,
+                metadata: {
+                  batchId: batch.id,
+                  failedCount,
+                  failedModel,
+                },
+              },
+            });
           }
         }
 
@@ -574,4 +595,4 @@ export async function GET() {
   }
 
   return NextResponse.json({ ok: true });
-} 
+}

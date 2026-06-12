@@ -6,6 +6,7 @@ import { Section } from "../atoms/Section/Section";
 import { useGetStarted } from "@/hooks/useGetStarted";
 import { ReactNode } from "react";
 import { useColorModeValues } from "@/hooks/useColorModeValues";
+import Link from "next/link";
 
 export type FeatureProps = {
   category: string;
@@ -63,6 +64,8 @@ export const Feature = ({
 
         {showCta && (
           <Button
+          as={Link}
+          href={isLoadingCta ? "#" : "/signup?trial=1&source=feature"}
           size="md"
           variant="solid"
           colorScheme="brand"
@@ -88,7 +91,7 @@ export const Feature = ({
             },
           }}
           >
-            Try FREE now
+            Start free for 7 days
           </Button>
         )}
       </Flex>

@@ -35,7 +35,7 @@ const getBlogData = async (slug: string) => {
       description: article.description,
       date: article.date,
       ogImage: {
-        url: article.ogImageUrl || '/default-og-image.jpg'
+        url: article.ogImageUrl || '/images/og-image.png'
       }
     },
     content
@@ -56,6 +56,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       metadataBase: new URL(websiteUrl),
       title: frontMatter.title,
       description: frontMatter.description,
+      alternates: {
+        canonical: `/blog/${slug}`,
+      },
     }),
     ...getOpenGraph({
       websiteUrl: `/blog/${slug}`,
@@ -72,9 +75,36 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 const BlogPage = async ({ params }: Props) => {
   const slug = params.slug;
   const { readTime, frontMatter, content } = await getBlogData(slug);
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: frontMatter.title,
+    description: frontMatter.description,
+    datePublished: frontMatter.date,
+    image: frontMatter.ogImage.url.startsWith("http")
+      ? frontMatter.ogImage.url
+      : `${websiteUrl}${frontMatter.ogImage.url}`,
+    url: `${websiteUrl}/blog/${slug}`,
+    author: {
+      "@type": "Organization",
+      name: "Who Needs a Writer",
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "Who Needs a Writer",
+      logo: {
+        "@type": "ImageObject",
+        url: `${websiteUrl}/logo.png`,
+      },
+    },
+  };
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <Article
         readingTime={readTime}
         title={frontMatter.title}

@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       description: post.description,
       date: post.date,
       slug: post.slug,
-      ogImageUrl: post.ogImageUrl ? (post.ogImageUrl.startsWith('http') ? post.ogImageUrl : `https://${post.ogImageUrl}`) : '/default-og-image.jpg'
+      ogImageUrl: post.ogImageUrl ? (post.ogImageUrl.startsWith('http') ? post.ogImageUrl : `https://${post.ogImageUrl}`) : '/images/og-image.png'
     }));
     
     return NextResponse.json({
@@ -213,4 +213,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}

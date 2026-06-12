@@ -16,7 +16,7 @@ export const useGetStarted = () => {
       router.push(Routes.articlegenerator);
       return;
     }
-    router.push(Routes.signUp);
+    router.push(`${Routes.signUp}?trial=1`);
   };
 
   return {

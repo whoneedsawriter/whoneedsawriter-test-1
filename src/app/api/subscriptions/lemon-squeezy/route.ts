@@ -8,6 +8,8 @@ import { authOptions } from "@/config/auth";
 interface CreateSubscriptionRequest {
   variantId: string;
   name: string;
+  planId?: number;
+  billingTermsVersion?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -24,10 +26,15 @@ export async function POST(req: NextRequest) {
 
     // Parse request body
     const body: CreateSubscriptionRequest = await req.json();
-    const { variantId, name } = body;
+    const { variantId, name, planId, billingTermsVersion } = body;
+    const selectedPlan = planId
+      ? await prismaClient.subscriptionPlan.findUnique({ where: { id: Number(planId) } })
+      : null;
+    const checkoutVariantId = selectedPlan?.priceId || variantId;
+    const checkoutPlanName = selectedPlan?.name || name;
 
     // Validate required fields
-    if (!variantId) {
+    if (!checkoutVariantId) {
       return NextResponse.json(
         { error: "Variant ID is required" },
         { status: HttpStatusCode.BadRequest }
@@ -88,7 +95,7 @@ export async function POST(req: NextRequest) {
         type: "checkouts",
         attributes: {
           product_options: {
-            redirect_url: `${process.env.NEXTAUTH_URL}/article-generator?payment=success&type=subscription&plan=${name}`,
+            redirect_url: `${process.env.NEXTAUTH_URL}/article-generator?payment=success&type=subscription&plan=${checkoutPlanName}`,
           },
           checkout_options: {
             embed: false,
@@ -100,6 +107,8 @@ export async function POST(req: NextRequest) {
             ...(session.user.name && { name: session.user.name }),
             custom: {
               user_id: user.id.toString(),
+              ...(selectedPlan && { plan_id: String(selectedPlan.id) }),
+              ...(billingTermsVersion && { billing_terms_version: billingTermsVersion }),
             },
           },
           expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
@@ -114,7 +123,7 @@ export async function POST(req: NextRequest) {
           variant: {
             data: {
               type: "variants",
-              id: variantId,
+              id: checkoutVariantId,
             },
           },
         },
@@ -167,4 +176,4 @@ export async function POST(req: NextRequest) {
       { status: HttpStatusCode.InternalServerError }
     );
   }
-} 
+}

@@ -1101,7 +1101,7 @@ seo content writing tips`}
 }
        { isProcessingGodmode && isGodMode && 
          <div className="godmod-progress fixed inset-0 z-50 flex items-center justify-center">
-           <GodmodeLoader progress={progressGodmode} isProcessing={GodModeLoader} />
+           <GodmodeLoader progress={progressGodmode} isProcessing={GodModeLoader} mode={selectedModel} />
            { !GodModeLoader && godmodeStatus === 'Full' &&
               <VStack spacing={2}>
                   <Text className="text-[#7f8aa3] text-[13px]">

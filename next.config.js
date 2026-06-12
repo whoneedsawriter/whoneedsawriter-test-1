@@ -1,6 +1,21 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  async redirects() {
+    return [
+      {
+        source: '/:path*',
+        has: [
+          {
+            type: 'host',
+            value: 'www.whoneedsawriter.com',
+          },
+        ],
+        destination: 'https://whoneedsawriter.com/:path*',
+        permanent: true,
+      },
+    ];
+  },
   async rewrites() {
     return [
       {
@@ -20,6 +35,25 @@ const nextConfig = {
           { key: 'Access-Control-Allow-Headers', value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version' },
         ]
       }
+      ,
+      {
+        source: '/',
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=3600, stale-while-revalidate=86400' },
+        ],
+      },
+      {
+        source: '/pricing',
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=1800, stale-while-revalidate=86400' },
+        ],
+      },
+      {
+        source: '/blog/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=1800, stale-while-revalidate=86400' },
+        ],
+      },
     ]
   },
   images: {

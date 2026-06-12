@@ -1,4 +1,5 @@
 const glob = require("glob");
+const { PrismaClient } = require("@prisma/client");
 
 const siteUrl = "https://whoneedsawriter.com";
 
@@ -14,6 +15,18 @@ module.exports = {
       const blogRoutes = await glob.sync("blogposts/*.mdx", {
         cwd: __dirname,
       });
+      let databaseBlogPosts = [];
+
+      try {
+        const prisma = new PrismaClient();
+        databaseBlogPosts = await prisma.blogPost.findMany({
+          where: { published: true },
+          select: { slug: true, updatedAt: true },
+        });
+        await prisma.$disconnect();
+      } catch (error) {
+        console.error("Unable to fetch database blog posts for sitemap:", error);
+      }
 
       console.log("Routes:", routes);
       console.log("Blog Routes:", blogRoutes);
@@ -56,8 +69,6 @@ module.exports = {
         { path: "pricing", priority: 0.8, changefreq: "weekly" },
         { path: "privacy", priority: 0.3, changefreq: "monthly" },
         { path: "terms", priority: 0.3, changefreq: "monthly" },
-        { path: "login", priority: 0.5, changefreq: "monthly" },
-        { path: "signup", priority: 0.5, changefreq: "monthly" },
         { path: "blog", priority: 0.7, changefreq: "weekly" },
       ];
 
@@ -88,8 +99,18 @@ module.exports = {
           loc: `${siteUrl}/blog/${path}`,
           priority: 0.6,
         }));
+      const databaseBlogLocs = databaseBlogPosts.map((post) => ({
+        changefreq: "monthly",
+        lastmod: post.updatedAt?.toISOString?.() || new Date().toISOString(),
+        loc: `${siteUrl}/blog/${post.slug}`,
+        priority: 0.6,
+      }));
 
-      const paths = [...staticLocs, ...blogLocs];
+      const pathsByLoc = new Map();
+      [...staticLocs, ...blogLocs, ...databaseBlogLocs].forEach((path) => {
+        pathsByLoc.set(path.loc, path);
+      });
+      const paths = Array.from(pathsByLoc.values());
 
       console.log("Generated sitemap paths:", paths);
       return paths;
@@ -107,6 +128,8 @@ module.exports = {
     "/articles/*",
     "/article-generator/*",
     "/batch/*",
+    "/login",
+    "/signup",
     "/api/*",
     "/supabase/*"
   ],

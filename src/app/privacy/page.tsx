@@ -46,6 +46,9 @@ import { brandName } from "@/config";
 export const metadata = {
   title: `Privacy Policy | ${brandName}`,
   description: 'Privacy Policy for whoneedsawriter.com - Learn how we protect your data while providing AI-powered article generation services.',
+  alternates: {
+    canonical: "/privacy",
+  },
 };
 
 function PrivacyPage() {

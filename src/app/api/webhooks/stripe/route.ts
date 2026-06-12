@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { headers } from "next/headers";
 import { prismaClient } from "@/prisma/db";
+import { grantTrialCredits } from "@/libs/credits";
+import { TRIAL_CREDITS, formatPlanPrice } from "@/libs/trial";
+import { sendPaymentFailedEmail, sendSubscriptionStartedEmail, sendTrialStartEmail } from "@/libs/billing-emails";
 
 export async function POST(req: NextRequest): Promise<Response> {
   const headersList = headers();
@@ -121,35 +124,109 @@ switch (stripeProductId) {
     break;  
 }
 
+      const isTrialing = subscription.status === "trialing";
+      const trialStartedAt = subscription.trial_start
+        ? new Date(subscription.trial_start * 1000)
+        : null;
+      const trialEndsAt = subscription.trial_end
+        ? new Date(subscription.trial_end * 1000)
+        : null;
+      const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+      let paymentMethodFingerprint: string | null = null;
+
+      if (subscription.default_payment_method) {
+        try {
+          const paymentMethod = await stripeClient.paymentMethods.retrieve(
+            subscription.default_payment_method as string
+          );
+          paymentMethodFingerprint = paymentMethod.card?.fingerprint || null;
+        } catch (error) {
+          console.error("Unable to fetch Stripe payment method fingerprint:", error);
+        }
+      }
+
       await prismaClient.userPlan.upsert({
         where: {
           userId: user1?.id,
         },
         update: {
+          provider: "stripe",
           stripeSubscriptionId: subscription.id,
           stripeCustomerId: subscription.customer as string,
           stripePriceId: subscription.items.data[0].price.id,
-          validUntil: new Date(subscription.current_period_end * 1000),
+          validUntil: currentPeriodEnd,
+          currentPeriodEnd,
+          status: isTrialing ? "trialing" : "active",
+          trialStartedAt,
+          trialEndsAt,
+          trialCreditsGranted: isTrialing ? TRIAL_CREDITS : 0,
+          trialCreditsUsed: 0,
+          cancelAtPeriodEnd: subscription.cancel_at_period_end,
+          paymentMethodFingerprint,
+          cancelled: 0,
         },
         create: {
           userId: user1?.id,
           planId: subscriptionPlan?.id,
+          provider: "stripe",
           stripeSubscriptionId: subscription.id,
           stripeCustomerId: subscription.customer as string,
           stripePriceId: subscription.items.data[0].price.id,
-          validUntil: new Date(subscription.current_period_end * 1000),
+          validUntil: currentPeriodEnd,
+          currentPeriodEnd,
+          status: isTrialing ? "trialing" : "active",
+          trialStartedAt,
+          trialEndsAt,
+          trialCreditsGranted: isTrialing ? TRIAL_CREDITS : 0,
+          trialCreditsUsed: 0,
+          cancelAtPeriodEnd: subscription.cancel_at_period_end,
+          paymentMethodFingerprint,
         },
       });
 
-      await prismaClient.user.update({
-        where: {
-          id: user1?.id,
-        },
-        data: {
-          monthyBalance: monthyBalance,
-          monthyPlan: monthyPlan,
-        }
-      });
+      if (isTrialing) {
+        await grantTrialCredits(user1.id, `trial_credit_grant:${user1.id}:${subscription.id}`);
+        await prismaClient.trialUsage.upsert({
+          where: { email: user1.email!.toLowerCase() },
+          update: {
+            paymentMethodFingerprint,
+            provider: "stripe",
+            subscriptionId: subscription.id,
+          },
+          create: {
+            userId: user1.id,
+            email: user1.email!.toLowerCase(),
+            paymentMethodFingerprint,
+            provider: "stripe",
+            subscriptionId: subscription.id,
+          },
+        });
+        await sendTrialStartEmail({
+          email: user1.email!,
+          subject: "Your 7-day trial has started",
+          text: `Your 7-day trial includes 5 credits and renews at ${formatPlanPrice(subscriptionPlan)}/month unless you cancel before the trial ends.`,
+          planName: subscriptionPlan.name,
+          renewalPrice: `${formatPlanPrice(subscriptionPlan)}/month`,
+          trialEndsAt: trialEndsAt?.toISOString() || "",
+        });
+      } else {
+        await prismaClient.user.update({
+          where: {
+            id: user1?.id,
+          },
+          data: {
+            monthyBalance: monthyBalance,
+            monthyPlan: monthyPlan,
+          }
+        });
+        await sendSubscriptionStartedEmail({
+          email: user1.email!,
+          subject: "Your subscription is active",
+          text: `Your ${subscriptionPlan.name} subscription is active.`,
+          planName: subscriptionPlan.name,
+          renewalPrice: `${formatPlanPrice(subscriptionPlan)}/month`,
+        });
+      }
       }
 
      // handle lifetime stripe payment if the checkout session is a payment
@@ -207,6 +284,17 @@ switch (stripeProductId) {
       const failedPaymentIntent = event.data.object as Stripe.PaymentIntent;
       break;
 
+    case "invoice.payment_failed":
+      const failedInvoice = event.data.object as Stripe.Invoice;
+      if (failedInvoice.customer_email) {
+        await sendPaymentFailedEmail({
+          email: failedInvoice.customer_email,
+          subject: "Payment failed for your subscription",
+          text: "We could not process your subscription payment. Please update your billing details to keep generation access active.",
+        });
+      }
+      break;
+
     case "customer.subscription.updated":
       const subscription = event.data.object as Stripe.Subscription;
 
@@ -231,6 +319,19 @@ switch (stripeProductId) {
       if (!user) {
         return NextResponse.json({ error: "User not found" }, { status: 400 });
       }
+
+      await prismaClient.userPlan.updateMany({
+        where: {
+          stripeSubscriptionId: subscription.id,
+        },
+        data: {
+          status: subscription.status,
+          currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+          validUntil: new Date(subscription.current_period_end * 1000),
+          cancelAtPeriodEnd: subscription.cancel_at_period_end,
+          cancelled: subscription.cancel_at_period_end ? 1 : 0,
+        },
+      });
 
       break;
 
@@ -267,6 +368,20 @@ switch (stripeProductId) {
           JSON.stringify(event, null, 2)
         );
         return NextResponse.json("User not found", { status: 400 });
+      }
+
+      if (_subscription.status === "trialing") {
+        await prismaClient.userPlan.update({
+          where: {
+            userId: renewalUser.id,
+          },
+          data: {
+            status: "trialing",
+            validUntil: new Date(_subscription.current_period_end * 1000),
+            currentPeriodEnd: new Date(_subscription.current_period_end * 1000),
+          },
+        });
+        break;
       }
 
       // Refresh monthly balances based on the subscription plan
@@ -313,6 +428,9 @@ switch (stripeProductId) {
         },
         data: {
           validUntil: new Date(_subscription.current_period_end * 1000),
+          currentPeriodEnd: new Date(_subscription.current_period_end * 1000),
+          status: "active",
+          cancelled: 0,
         },
       });
 
@@ -326,6 +444,13 @@ switch (stripeProductId) {
           monthyPlan: monthyPlan,
         }
       });
+      if (renewalUser.email) {
+        await sendSubscriptionStartedEmail({
+          email: renewalUser.email,
+          subject: "Your subscription is active",
+          text: "Your paid subscription renewal is complete and your monthly credits have been refreshed.",
+        });
+      }
 
       break;
 
@@ -369,6 +494,8 @@ switch (stripeProductId) {
         },
         data: {
           cancelled: 1,
+          status: "canceled",
+          cancelAtPeriodEnd: true,
         },
       });
 

@@ -18,7 +18,8 @@ import { useState } from "react";
 import { TbArrowRight, TbCalendarDue, TbStarFilled } from "react-icons/tb";
 import Image from "next/image";
 import { LuCircleDollarSign } from "react-icons/lu";
-import Typewriter from "typewriter-effect";
+import NextLink from "next/link";
+import { trackFunnelEvent } from "@/libs/analytics";
 
 type HeroProps = {
   showBookDemo?: boolean;
@@ -37,13 +38,17 @@ export const Hero = ({
   const { primaryTextColor, secondaryTextColor } = useColorModeValues();
 
   const [isLoadingCta, setLoadingCta] = useState(false);
+  const getStartedHref = user
+    ? Routes.articlegenerator
+    : `${Routes.signUp}?trial=1&source=hero`;
   const onGetStartedClick = () => {
     setLoadingCta(true);
+    trackFunnelEvent("homepage_cta_click", { location: "hero" });
     if (user) {
       router.push(Routes.articlegenerator);
       return;
     }
-    router.push(Routes.signUp);
+    router.push(`${Routes.signUp}?trial=1&source=hero`);
   };
 
   return (
@@ -70,13 +75,29 @@ export const Hero = ({
           <Heading
             textAlign={["center", "center", "center", "left"]}
             fontWeight="extrabold"
-            fontSize={["24px", "36px", "50px", "50px", "60px"]}
-            lineHeight={["34px", "46px", "56px", "60px", "66px"]}
+            fontSize={["30px", "40px", "50px", "50px", "60px"]}
+            lineHeight={["38px", "48px", "58px", "62px", "68px"]}
             px="16px"
-            letterSpacing={["-0.5px", "-0.5px", "-0.7px", "-1.1px"]}
+            letterSpacing="0"
             wordBreak="keep-all"
-            whiteSpace="nowrap"
             as="h1"
+            color={primaryTextColor}
+            maxW={["100%", "720px", "800px"]}
+          >
+            <Text
+              bgGradient="linear(to-r, brand.400, brand.300)"
+              backgroundClip="text"
+              as="span"
+            >
+              AI Blog Post Generator
+            </Text>
+            {" "}for Research-Backed SEO Articles
+          </Heading>
+          <Text
+            px="16px"
+            mt="10px"
+            fontWeight="bold"
+            fontSize={["15px", "18px", "20px"]}
             color={primaryTextColor}
           >
             <Text
@@ -84,39 +105,9 @@ export const Hero = ({
               backgroundClip="text"
               as="span"
             >
-             One-Click
+              From one keyword to WordPress-ready drafts with images.
             </Text>
-          </Heading>
-          <Heading
-            as="h1"
-            px="16px"
-            fontWeight="extrabold"
-            fontSize={["24px", "36px", "50px", "50px", "60px"]}
-            lineHeight={["34px", "46px", "56px", "60px", "66px"]}
-            color={primaryTextColor}
-          >
-          <Typewriter
-            options={{
-              strings: ["High Quality", "Well Researched", "SEO Optimized"],
-              autoStart: true,
-              loop: true,
-              delay: 200,
-            }}
-          />
-          </Heading>
-          <Heading
-          as="h1"
-           px="16px"
-           fontWeight="extrabold"
-           fontSize={["24px", "36px", "50px", "50px", "60px"]}
-           lineHeight={["34px", "46px", "56px", "60px", "66px"]}>
-            <Text
-              bgGradient="linear(to-r, brand.400, brand.300)"
-              backgroundClip="text"
-              as="span"
-            >Blog Posts
-            </Text>
-          </Heading>
+          </Text>
 
           <Text
             textAlign={["center", "center", "center", "left"]}
@@ -126,7 +117,7 @@ export const Hero = ({
             fontSize={["14px", "15px", "18px", "20px"]}
             maxW={["70%", "70%", "70%", "560px"]}
           >
-            Generate well-researched, human-focused articles with AI. Optimized for featured snippets and complete with high-quality images. Just enter a keyword and get started.
+            Use an AI blog post generator that turns one keyword into researched outlines, SEO-ready sections, article images, and clean formatting for publishing.
           </Text>
 
           <Flex flexDir="column" alignItems="flex-start" px="16px" mt="24px">
@@ -134,6 +125,8 @@ export const Hero = ({
               {showCta && (
                 <Flex flexDir="column">
                   <Button
+                    as={NextLink}
+                    href={getStartedHref}
                     size="md"
                     variant="solid"
                     colorScheme="brand"
@@ -159,8 +152,13 @@ export const Hero = ({
                       },
                     }}
                   >
-                    {isLogged ? "Go to app" : "Try FREE now"}
+                    {isLogged ? "Go to app" : "Start free for 7 days"}
                   </Button>
+                  {!isLogged && (
+                    <Text color={secondaryTextColor} fontSize="12px" maxW="280px">
+                      5 credits included. Then your selected plan price/month. Cancel anytime. Card required.
+                    </Text>
+                  )}
                   
                 </Flex>
               )}

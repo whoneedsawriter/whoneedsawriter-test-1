@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { prismaClient } from "@/prisma/db";
 import crypto from "crypto";
+import { grantTrialCredits } from "@/libs/credits";
+import { TRIAL_CREDITS, formatPlanPrice } from "@/libs/trial";
+import { sendCancellationEmail, sendPaymentFailedEmail, sendSubscriptionStartedEmail, sendTrialStartEmail } from "@/libs/billing-emails";
 
 // LemonSqueezy webhook event types
 interface LemonSqueezyWebhookEvent {
@@ -178,34 +181,91 @@ export async function POST(req: NextRequest): Promise<Response> {
         // - lemonSubscriptionId: String?
         // - lemonCustomerId: String?  
         // - lemonVariantId: String?
+        const isTrialing =
+          subscription.attributes.status === "on_trial" ||
+          Boolean(subscription.attributes.trial_ends_at);
+        const trialEndsAt = subscription.attributes.trial_ends_at
+          ? new Date(subscription.attributes.trial_ends_at)
+          : null;
+        const currentPeriodEnd = new Date(subscription.attributes.renews_at);
+
         await prismaClient.userPlan.upsert({
           where: {
             userId: user.id,
           },
           update: {
+             provider: "lemon-squeezy",
              lemonSubscriptionId: subscription.id,
              lemonVariantId: subscription.attributes.variant_id.toString(),
-             validUntil: new Date(subscription.attributes.renews_at),
+             validUntil: isTrialing && trialEndsAt ? trialEndsAt : currentPeriodEnd,
+             currentPeriodEnd,
+             status: isTrialing ? "trialing" : "active",
+             trialStartedAt: isTrialing ? new Date(subscription.attributes.created_at) : null,
+             trialEndsAt,
+             trialCreditsGranted: isTrialing ? TRIAL_CREDITS : 0,
+             trialCreditsUsed: 0,
+             cancelAtPeriodEnd: Boolean(subscription.attributes.ends_at),
+             cancelUrl: subscription.attributes.urls?.customer_portal,
+             updateUrl: subscription.attributes.urls?.update_payment_method,
+             cancelled: 0,
           },
           create: {
             userId: user.id,
             planId: subscriptionPlan?.id || null,
+            provider: "lemon-squeezy",
             lemonSubscriptionId: subscription.id,
             lemonVariantId: subscription.attributes.variant_id.toString(),
-            validUntil: new Date(subscription.attributes.renews_at),
+            validUntil: isTrialing && trialEndsAt ? trialEndsAt : currentPeriodEnd,
+            currentPeriodEnd,
+            status: isTrialing ? "trialing" : "active",
+            trialStartedAt: isTrialing ? new Date(subscription.attributes.created_at) : null,
+            trialEndsAt,
+            trialCreditsGranted: isTrialing ? TRIAL_CREDITS : 0,
+            trialCreditsUsed: 0,
+            cancelAtPeriodEnd: Boolean(subscription.attributes.ends_at),
+            cancelUrl: subscription.attributes.urls?.customer_portal,
+            updateUrl: subscription.attributes.urls?.update_payment_method,
           },
         });
 
-        // Update user balances
-        await prismaClient.user.update({
-          where: {
-            id: user.id,
-          },
-          data: {
-            monthyBalance: balances.monthyBalance,
-            monthyPlan: balances.monthyPlan,
-          },
-        });
+        if (isTrialing) {
+          await grantTrialCredits(user.id, `trial_credit_grant:${user.id}:${subscription.id}`);
+          await prismaClient.trialUsage.upsert({
+            where: { email: user.email!.toLowerCase() },
+            update: {
+              provider: "lemon-squeezy",
+              subscriptionId: subscription.id,
+            },
+            create: {
+              userId: user.id,
+              email: user.email!.toLowerCase(),
+              provider: "lemon-squeezy",
+              subscriptionId: subscription.id,
+            },
+          });
+          if (subscriptionPlan && user.email) {
+            await sendTrialStartEmail({
+              email: user.email,
+              subject: "Your 7-day trial has started",
+              text: `Your 7-day trial includes 5 credits and renews at ${formatPlanPrice(subscriptionPlan)}/month unless you cancel before the trial ends.`,
+              planName: subscriptionPlan.name,
+              renewalPrice: `${formatPlanPrice(subscriptionPlan)}/month`,
+              trialEndsAt: trialEndsAt?.toISOString() || "",
+              cancelUrl: subscription.attributes.urls?.customer_portal,
+            });
+          }
+        } else {
+          // Update user balances
+          await prismaClient.user.update({
+            where: {
+              id: user.id,
+            },
+            data: {
+              monthyBalance: balances.monthyBalance,
+              monthyPlan: balances.monthyPlan,
+            },
+          });
+        }
 
         console.log(`Subscription created for user: ${user.email}`);
       } catch (error) {
@@ -250,9 +310,22 @@ export async function POST(req: NextRequest): Promise<Response> {
           },
           data: {
             cancelled: 1,
+            status: "canceled",
+            cancelAtPeriodEnd: true,
             validUntil: subscription.attributes.ends_at ? new Date(subscription.attributes.ends_at) : new Date(),
           },
         });
+        const canceledUser = await prismaClient.user.findUnique({
+          where: { id: userPlan.userId },
+        });
+        if (canceledUser?.email) {
+          await sendCancellationEmail({
+            email: canceledUser.email,
+            subject: "Your trial or subscription was canceled",
+            text: "Your cancellation has been recorded. Your generated articles will remain available.",
+            cancelUrl: subscription.attributes.urls?.customer_portal,
+          });
+        }
 
         console.log(`Subscription cancelled: ${subscription.id}`);
       } catch (error) {
@@ -292,7 +365,10 @@ export async function POST(req: NextRequest): Promise<Response> {
           },
           data: {
             cancelled: 0,
+            status: "active",
+            cancelAtPeriodEnd: false,
             validUntil: new Date(subscription.attributes.renews_at),
+            currentPeriodEnd: new Date(subscription.attributes.renews_at),
           },
         });
 
@@ -393,6 +469,9 @@ export async function POST(req: NextRequest): Promise<Response> {
           data: {
             validUntil: newValidUntil,
             lemonSubscriptionId: subscriptionId.toString(), // Ensure subscription ID is stored
+            currentPeriodEnd: newValidUntil,
+            status: "active",
+            cancelled: 0,
           },
         });
 
@@ -408,6 +487,16 @@ export async function POST(req: NextRequest): Promise<Response> {
             monthyPlan: balances.monthyPlan,
           },
         });
+        const renewalUser = await prismaClient.user.findUnique({
+          where: { id: userPlan.userId },
+        });
+        if (renewalUser?.email) {
+          await sendSubscriptionStartedEmail({
+            email: renewalUser.email,
+            subject: "Your subscription is active",
+            text: "Your paid subscription renewal is complete and your monthly credits have been refreshed.",
+          });
+        }
 
         console.log(`Subscription renewed successfully: ${subscriptionId} (Invoice: ${invoice.id})`);
       } catch (error) {
@@ -416,6 +505,22 @@ export async function POST(req: NextRequest): Promise<Response> {
           { error: "Failed to process subscription renewal" },
           { status: 500 }
         );
+      }
+      break;
+
+    case "subscription_payment_failed":
+      try {
+        const failed = event.data;
+        if (failed.attributes.user_email) {
+          await sendPaymentFailedEmail({
+            email: failed.attributes.user_email,
+            subject: "Payment failed for your subscription",
+            text: "We could not process your subscription payment. Please update your billing details to keep generation access active.",
+            cancelUrl: failed.attributes.urls?.update_payment_method,
+          });
+        }
+      } catch (error) {
+        console.error("Error handling Lemon payment failure:", error);
       }
       break;
 

@@ -126,7 +126,7 @@ fetch(geoUrl, {
 
     const payStripeSubscription = async (priceId: string, name: string) => {
       if (!isLogged) {
-        router.push('/login');
+        router.push('/signup?trial=1');
         return;
       }
       
@@ -322,22 +322,25 @@ fetch(geoUrl, {
             </div>
           </div>
 
-          <button 
-            onClick={() => payStripeSubscription(plan.priceId, plan.name)} 
-            disabled={processingPlan === plan.priceId || (planData?.SubscriptionPlan && planData.SubscriptionPlan.planId === plan.id)}
-            className={`mt-6 w-full py-3 rounded-xl bg-[#33d6e2] text-[#0b1120] font-semibold text-sm hover:bg-[#4cf0ff] transition ${
-              (processingPlan === plan.priceId || (planData?.SubscriptionPlan && planData.SubscriptionPlan.planId === plan.id))
-                ? 'cursor-not-allowed opacity-50' 
-                : 'cursor-pointer'
-            }`}
-          >
-            { planData?.SubscriptionPlan && planData.SubscriptionPlan.planId === plan.id
-              ? 'Current Plan' 
-              : processingPlan === plan.priceId 
-                ? 'Processing Payment...' 
-                : 'Upgrade Now'
-            }
-          </button>
+          {planData?.SubscriptionPlan && planData.SubscriptionPlan.planId === plan.id ? (
+            <button
+              disabled
+              className="mt-6 w-full py-3 rounded-xl bg-[#33d6e2] text-[#0b1120] font-semibold text-sm cursor-not-allowed opacity-50"
+            >
+              Current Plan
+            </button>
+          ) : (
+            <a
+              href={isLogged ? `/checkout/trial?planId=${plan.id}` : `/signup?trial=1&planId=${plan.id}`}
+              className="mt-6 block w-full py-3 rounded-xl bg-[#33d6e2] text-[#0b1120] font-semibold text-sm hover:bg-[#4cf0ff] transition text-center"
+            >
+              Start free for 7 days
+            </a>
+          )}
+          <p className="mt-3 text-xs leading-5 text-[#8990a5]">
+            5 credits included. Then {plan.currency === 'INR' ? 'Rs. ' : '$'}{plan.price}/month.
+            Cancel anytime. Card required.
+          </p>
         </div>
       )})}
                     </div>

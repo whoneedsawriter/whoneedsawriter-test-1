@@ -79,7 +79,7 @@ export const Header = ({}: HeaderProps) => {
             onClick={() => onGetStartedClick()}
             isLoading={isLoadingCta}
           >
-            {isLogged ? "Go to app" : "Get started"}
+            {isLogged ? "Go to app" : "Start free for 7 days"}
           </Button>
           <Flex display={["none", null, "flex"]}>
             <DarkModeSwitch />
@@ -126,7 +126,7 @@ export const Header = ({}: HeaderProps) => {
                     w="100%"
                     h="40px"
                   >
-                    Get started
+                    {isLogged ? "Go to app" : "Start free for 7 days"}
                   </Button>
                 </VStack>
               </DrawerBody>

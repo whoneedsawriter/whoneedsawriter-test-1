@@ -30,6 +30,9 @@ import { brandName } from "@/config";
 export const metadata = {
   title: `Terms and Conditions | Who Needs a Writer`,
   description: '',
+  alternates: {
+    canonical: "/terms",
+  },
 };
 
 function PrivacyPage() {

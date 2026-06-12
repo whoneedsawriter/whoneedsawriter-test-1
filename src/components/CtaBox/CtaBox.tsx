@@ -15,6 +15,8 @@ import { useIsLogged } from "@/hooks/useIsLogged";
 import { useRouter } from "next/navigation";
 import { Section } from "../atoms/Section/Section";
 import { brandName, demoCalendlyLink } from "@/config";
+import Link from "next/link";
+import { trackFunnelEvent } from "@/libs/analytics";
 
 export const CtaBox = () => {
   const router = useRouter();
@@ -28,11 +30,12 @@ export const CtaBox = () => {
   const [isLoadingCta, setLoadingCta] = useState(false);
   const onGetStartedClick = () => {
     setLoadingCta(true);
+    trackFunnelEvent("homepage_cta_click", { location: "final_cta" });
     if (user) {
       router.push(Routes.dashboard);
       return;
     }
-    router.push(Routes.signUp);
+    router.push(`${Routes.signUp}?trial=1&source=final-cta`);
   };
 
   return (
@@ -71,6 +74,8 @@ export const CtaBox = () => {
         <Stack direction={["column", "column", "column", "row"]} mt="24px">
           <Flex maxW="524px" flexDir="row">
             <Button
+              as={Link}
+              href={user ? Routes.dashboard : `${Routes.signUp}?trial=1&source=final-cta`}
               size="md"
               variant="solid"
               colorScheme="brand"
@@ -96,10 +101,15 @@ export const CtaBox = () => {
                 },
               }}
             >
-              Try FREE now
+              Start free for 7 days
             </Button>
           </Flex>
         </Stack>
+        {!user && (
+          <Text mt="14px" fontSize="13px" color="blackAlpha.700" maxW="560px">
+            5 credits included. Then your selected plan price/month. Cancel anytime. Card required.
+          </Text>
+        )}
 
         <Stack
           direction={["column", "column", "row"]}

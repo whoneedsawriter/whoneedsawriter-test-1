@@ -14,7 +14,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 // 🆕 Added "Composing Final Article" step
-const steps = [
+const defaultSteps = [
   "Understanding Keyword",
   "Researching",
   "Writing Outline",
@@ -27,10 +27,16 @@ const steps = [
   "Writing Meta Tags",
   "Composing Final Article"
 ];
+const liteSteps = [
+  "Understanding keyword",
+  "Creating outline",
+  "Writing draft",
+  "Polishing article",
+  "Finalizing"
+];
 
 const TOTAL_DURATION = 900; // in seconds (15 minutes)
 const EARLY_PHASE_DURATION = 10; // First 3 steps: total 30 seconds
-const LATE_PHASE_STEP_DURATION = (TOTAL_DURATION - EARLY_PHASE_DURATION) / (steps.length - 3); 
 // dynamically split remaining time among remaining steps
 
 const pulse = keyframes`
@@ -42,9 +48,10 @@ const pulse = keyframes`
 interface GodmodeLoaderProps {
   isProcessing: boolean;
   progress: number; // 0 to 100
+  mode?: string;
 }
 
-const GodmodeLoader = ({ isProcessing, progress }: GodmodeLoaderProps) => {
+const GodmodeLoader = ({ isProcessing, progress, mode }: GodmodeLoaderProps) => {
   const spinnerColor = useColorModeValue("blackAlpha.300", "whiteAlpha.300");
   const textColor = useColorModeValue("gray.600", "gray.300");
   const router = useRouter();
@@ -58,8 +65,11 @@ const GodmodeLoader = ({ isProcessing, progress }: GodmodeLoaderProps) => {
 
   if (!isProcessing) return null;
 
-  const elapsed = (progress / 100) * TOTAL_DURATION;
-  const remaining = TOTAL_DURATION - elapsed;
+  const steps = mode === "1a-lite" ? liteSteps : defaultSteps;
+  const totalDuration = mode === "1a-lite" ? 180 : TOTAL_DURATION;
+  const latePhaseStepDuration = (totalDuration - EARLY_PHASE_DURATION) / Math.max(1, steps.length - 3);
+  const elapsed = (progress / 100) * totalDuration;
+  const remaining = totalDuration - elapsed;
   const minutes = Math.floor(remaining / 60);
   const seconds = Math.floor(remaining % 60);
 
@@ -73,7 +83,7 @@ const GodmodeLoader = ({ isProcessing, progress }: GodmodeLoaderProps) => {
     } else {
       const adjustedElapsed = elapsed - EARLY_PHASE_DURATION;
       const stepIndex = Math.min(
-        3 + Math.floor(adjustedElapsed / LATE_PHASE_STEP_DURATION),
+        3 + Math.floor(adjustedElapsed / latePhaseStepDuration),
         steps.length - 1
       );
       return {
@@ -124,7 +134,9 @@ const GodmodeLoader = ({ isProcessing, progress }: GodmodeLoaderProps) => {
           {progress < 100 && (
             <>
               <Text fontSize="sm" color={textColor} textAlign="center">
-                Your complete batch of articles will be ready in just 20 minutes.
+                {mode === "1a-lite"
+                  ? "Lite drafts usually finish in a few minutes."
+                  : "Your complete batch of articles will be ready in about 15 to 20 minutes."}
               </Text>
 
               <Flex alignItems="center" justifyContent="center" mb={2}>
@@ -135,8 +147,7 @@ const GodmodeLoader = ({ isProcessing, progress }: GodmodeLoaderProps) => {
               </Flex>
 
               <Text fontSize="sm" color={textColor} textAlign="center">
-                We will notify you via email once it&apos;s completed.
-                You may go to the dashboard and continue with your work.
+                You can leave this page. We will email you when it is ready.
               </Text>
 
               <Button

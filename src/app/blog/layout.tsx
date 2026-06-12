@@ -16,6 +16,9 @@ export const metadata: Metadata = {
     metadataBase: new URL(websiteUrl),
     title: `${landingPageTitle} | Blog`,
     description: landingPageDescription,
+    alternates: {
+      canonical: "/blog",
+    },
   }),
   ...getOpenGraph({
     title: landingPageTitle,

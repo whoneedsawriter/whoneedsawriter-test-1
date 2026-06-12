@@ -121,6 +121,19 @@ export const Dashboard = () => {
       }>;
     }
   });
+  const { data: planResponse } = useQuery({
+    queryKey: ["account-plan"],
+    queryFn: () => axios.get("/api/account"),
+  });
+  const userPlan = planResponse?.data?.SubscriptionPlan;
+  const subscriptionDetails = planResponse?.data?.SubscriptionDetails;
+  const trialEndsAt = userPlan?.trialEndsAt ? new Date(userPlan.trialEndsAt) : null;
+  const trialDaysLeft = trialEndsAt
+    ? Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : 0;
+  const trialCreditsGranted = Number(userPlan?.trialCreditsGranted || 5);
+  const trialCreditsUsed = Number(userPlan?.trialCreditsUsed || 0);
+  const trialCreditsRemaining = Math.max(0, trialCreditsGranted - trialCreditsUsed);
 
   return (
     <>
@@ -135,6 +148,28 @@ export const Dashboard = () => {
               </TourTrigger> */}
             </div>
 
+            {userPlan?.status === "trialing" && (
+              <Card className="border-cyan-300/40 bg-cyan-50/60">
+                <CardHeader>
+                  <CardTitle>Trial active: {trialDaysLeft} days left</CardTitle>
+                  <CardDescription>
+                    Trial credits: {trialCreditsRemaining} / {trialCreditsGranted} remaining. Your {subscriptionDetails?.name || "selected"} plan starts on {trialEndsAt?.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-wrap gap-3">
+                  <Button colorScheme="brand" onClick={() => router.push("/article-generator")}>
+                    Generate your first article
+                  </Button>
+                  <Button variant="outline" onClick={() => router.push("/account")}>
+                    Cancel trial
+                  </Button>
+                  <Button variant="ghost" onClick={() => router.push("/pricing")}>
+                    Upgrade now
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
             <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-3">
               <Card 
                 className="group cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-105 hover:border-blue-300" 
@@ -143,12 +178,12 @@ export const Dashboard = () => {
               >
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-lg font-xl">
-                    Generate Article(s)
+                    Generate your first article
                   </CardTitle>
                   <TbCrown className="h-6 w-6 text-muted-foreground transition-all duration-300 hover:text-yellow-500 hover:scale-110 group-hover:text-yellow-500 group-hover:scale-110" />
                 </CardHeader>
                 <CardContent className="text-sm text-slate-500">
-                  These are articles of extremely high quality written after in depth research. 
+                  Start with a keyword. You can leave the page after submitting; we will email you when it is ready.
                 </CardContent>
               </Card>
 

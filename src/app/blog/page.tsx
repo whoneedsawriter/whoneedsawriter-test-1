@@ -53,7 +53,7 @@ async function Blog({
     timeReading: { text: '5 min read' }, // You might want to calculate this based on content length
     excerpt: article.description,
     ogImage: {
-      url: article.ogImageUrl || '/default-og-image.jpg'
+      url: article.ogImageUrl || '/images/og-image.png'
     },
     author: {
       name: 'Admin',

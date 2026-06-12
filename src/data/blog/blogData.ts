@@ -58,11 +58,11 @@ async function getArticleBySlug(slug: string, fields: string[] = []): Promise<Ar
       }
       if (field === "ogImage") {
         items[field] = {
-          url: post.ogImageUrl || '/default-og-image.jpg'
+          url: post.ogImageUrl || '/images/og-image.png'
         };
       }
       if (field === "coverImage") {
-        items[field] = post.ogImageUrl || '/default-cover-image.jpg';
+        items[field] = post.ogImageUrl || '/images/og-image.png';
       }
       if (field === "excerpt") {
         // Generate excerpt from content (first 150 characters)

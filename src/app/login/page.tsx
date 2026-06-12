@@ -6,6 +6,13 @@ import Login from "@/components/pages/Login/Login";
 export const metadata: Metadata = getSEOTags({
   title: `Login | ${brandName}`,
   description: `Login to your account | ${brandName}`,
+  robots: {
+    index: false,
+    follow: false,
+  },
+  alternates: {
+    canonical: "/login",
+  },
 });
 
 const LoginPage = () => {
