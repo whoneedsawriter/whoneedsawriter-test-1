@@ -53,7 +53,7 @@ export const Hero = ({
 
   return (
     <Flex
-      w="100vw"
+      w="100%"
       alignItems="center"
       flexDir="column"
       mt={["0", "0", "0", "100px"]}
@@ -61,7 +61,7 @@ export const Hero = ({
       <Flex
         flexDir={["column", "column", "column", "row"]}
         maxW="1280px"
-        w="100vw"
+        w="100%"
         position="relative"
       >
         <Flex
@@ -121,7 +121,7 @@ export const Hero = ({
           </Text>
 
           <Flex flexDir="column" alignItems="flex-start" px="16px" mt="24px">
-            <Flex flexDir={["column-reverse", "column-reverse", "row"]}>
+            <Flex flexDir={["column", "column", "row"]} alignItems={["center", "center", "center"]}>
               {showCta && (
                 <Flex flexDir="column">
                   <Button

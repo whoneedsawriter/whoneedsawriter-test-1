@@ -7,7 +7,7 @@ export const Section: ComponentWithAs<"div", FlexProps> = ({
   return (
     <Flex
       mt="120px"
-      w="100vw"
+      w="100%"
       alignItems="center"
       justifyContent="center"
       {...props}

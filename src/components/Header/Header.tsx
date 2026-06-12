@@ -37,7 +37,7 @@ export const Header = ({}: HeaderProps) => {
 
   return (
     <Flex
-      w="100vw"
+      w="100%"
       p="16px 24px"
       alignItems="center"
       flexDir="row"

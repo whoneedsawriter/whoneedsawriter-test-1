@@ -101,7 +101,7 @@ export const CtaBox = () => {
                 },
               }}
             >
-              Start free for 7 days
+              {user ? "Go to app" : "Start free for 7 days"}
             </Button>
           </Flex>
         </Stack>

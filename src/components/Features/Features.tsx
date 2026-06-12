@@ -31,7 +31,7 @@ type FeaturesProps = {
 
 export const Features = ({ showCta = true }: FeaturesProps) => {
   return (
-    <Section flexDir="column" mt={{ base: "0px", lg: "120px" }}>
+    <Section flexDir="column" mt={{ base: "56px", lg: "72px" }}>
       {featuresList.map((feature, index) => {
         return (
           <Feature

@@ -23,7 +23,7 @@ export const Feature = ({
   imageUrl,
   showCta,
 }: FeatureProps) => {
-  const { isLoadingCta, onGetStartedClick } = useGetStarted();
+  const { isLogged, isLoadingCta, onGetStartedClick } = useGetStarted();
   const { primaryTextColor } = useColorModeValues();
   
   // Define different gradients for light and dark modes (same as Hero)
@@ -65,7 +65,7 @@ export const Feature = ({
         {showCta && (
           <Button
           as={Link}
-          href={isLoadingCta ? "#" : "/signup?trial=1&source=feature"}
+          href={isLoadingCta ? "#" : isLogged ? "/article-generator" : "/signup?trial=1&source=feature"}
           size="md"
           variant="solid"
           colorScheme="brand"
@@ -91,7 +91,7 @@ export const Feature = ({
             },
           }}
           >
-            Start free for 7 days
+            {isLogged ? "Go to app" : "Start free for 7 days"}
           </Button>
         )}
       </Flex>
