@@ -66,7 +66,7 @@ export const Hero = ({
       >
         <Flex
           flexDir="column"
-          w={["100%", "100%", "100%", "60%"]}
+          w={["100%", "100%", "100%", "52%"]}
           alignItems={["center", "center", "center", "flex-start"]}
           justifyContent="center"
           pl={["0", "0", "0", "40px", "40px"]}
@@ -75,14 +75,14 @@ export const Hero = ({
           <Heading
             textAlign={["center", "center", "center", "left"]}
             fontWeight="extrabold"
-            fontSize={["30px", "40px", "50px", "50px", "60px"]}
-            lineHeight={["38px", "48px", "58px", "62px", "68px"]}
+            fontSize={["30px", "40px", "50px", "50px", "56px"]}
+            lineHeight={["38px", "48px", "58px", "62px", "64px"]}
             px="16px"
             letterSpacing="0"
             wordBreak="keep-all"
             as="h1"
             color={primaryTextColor}
-            maxW={["100%", "720px", "800px"]}
+            maxW={["100%", "720px", "800px", "580px"]}
           >
             <Text
               bgGradient="linear(to-r, brand.400, brand.300)"
@@ -249,9 +249,9 @@ export const Hero = ({
           </Flex>
         </Flex>
         <Flex
-          w={["100%", "100%", "100%", "600px", "700px"]}
+          w={["100%", "100%", "100%", "48%"]}
           mt={["40px", "40px", "40px", "0px"]}
-          ml={["0", "0", "0", "-80px", "-100px"]}
+          ml="0"
           pr={["0", "0", "0", "40px", "0"]}
           h="auto"
           alignItems="center"
@@ -276,8 +276,8 @@ export const Hero = ({
           position="relative"
           borderRadius={["8px", "8px", "16px", "16px"]}
           overflow="hidden"
-          w={["100%", "100%", "600px", "600px"]}
-          h={["200px", "250px", "400px", "400px"]}
+          w={["100%", "100%", "600px", "100%"]}
+          h={["200px", "250px", "400px", "360px"]}
           maxW="calc(100vw - 48px)"
         >
           <iframe

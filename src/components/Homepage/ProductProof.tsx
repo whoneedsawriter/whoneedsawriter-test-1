@@ -31,11 +31,11 @@ export function ProductProof() {
               <p className="font-semibold">Images, meta, WordPress</p>
             </div>
           </div>
-          <ol className="mt-4 space-y-2 text-sm text-slate-200">
-            <li>1. Small-apartment desk buying criteria</li>
-            <li>2. Foldable, wall-mounted, and compact electric options</li>
-            <li>3. Comparison table, FAQ, and featured snippet answer</li>
-          </ol>
+          <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-slate-200">
+            <li>Small-apartment desk buying criteria</li>
+            <li>Foldable, wall-mounted, and compact electric options</li>
+            <li>Comparison table, FAQ, and featured snippet answer</li>
+          </ul>
         </div>
       </div>
     </section>
