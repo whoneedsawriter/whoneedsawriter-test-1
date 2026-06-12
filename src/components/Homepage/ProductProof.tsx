@@ -1,18 +1,18 @@
 export function ProductProof() {
   return (
-    <section className="w-full px-4 py-10">
+    <section className="w-full px-4 py-10 sm:py-12">
       <div className="mx-auto grid w-full max-w-6xl gap-5 md:grid-cols-[0.9fr_1.1fr]">
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-[#0b1120]">
-          <p className="text-xs font-semibold uppercase text-cyan-600">Example keyword</p>
-          <p className="mt-2 text-2xl font-bold text-slate-950 dark:text-white">
+        <div className="rounded-lg border border-slate-800 bg-[#0b1120] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
+          <p className="text-xs font-semibold uppercase tracking-wide text-cyan-300">Example keyword</p>
+          <p className="mt-2 text-2xl font-bold text-white">
             best standing desk for small apartments
           </p>
-          <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
+          <p className="mt-4 text-sm leading-6 text-slate-300">
             Who Needs a Writer builds the article plan, drafts the post, and prepares publishing assets from a single keyword.
           </p>
         </div>
 
-        <div className="rounded-lg border border-slate-200 bg-slate-950 p-5 text-white shadow-sm">
+        <div className="rounded-lg border border-cyan-400/30 bg-slate-950 p-5 text-white shadow-[0_18px_50px_rgba(34,211,238,0.12)]">
           <p className="text-xs font-semibold uppercase text-cyan-300">Generated output preview</p>
           <h2 className="mt-2 text-2xl font-bold">
             Best Standing Desks for Small Apartments: Space-Saving Picks That Still Feel Premium

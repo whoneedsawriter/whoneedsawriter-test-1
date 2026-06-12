@@ -1,4 +1,9 @@
+"use client";
+
 import Link from "next/link";
+import { Routes } from "@/data/routes";
+import { trackFunnelEvent } from "@/libs/analytics";
+import { useIsLogged } from "@/hooks/useIsLogged";
 
 const sections = [
   {
@@ -36,15 +41,20 @@ const sections = [
 ];
 
 export function HomeSeoSections() {
+  const { isLogged, isLoading } = useIsLogged();
+  const ctaHref = isLogged
+    ? `${Routes.pricing}#pricing`
+    : `${Routes.signUp}?trial=1&source=seo-section`;
+
   return (
-    <section className="w-full px-4 py-14">
+    <section className="w-full px-4 py-12 sm:py-16">
       <div className="mx-auto max-w-6xl">
         <div className="mb-8 max-w-3xl">
-          <p className="text-sm font-semibold uppercase text-cyan-600">SEO article workflow</p>
-          <h2 className="mt-2 text-3xl font-bold text-slate-950 dark:text-white">
+          <p className="text-sm font-semibold uppercase tracking-wide text-cyan-300">SEO article workflow</p>
+          <h2 className="mt-2 text-3xl font-bold leading-tight text-white sm:text-4xl">
             The AI blog post generator for researched, publish-ready articles
           </h2>
-          <p className="mt-3 text-slate-600 dark:text-slate-300">
+          <p className="mt-3 max-w-2xl text-base leading-7 text-slate-300">
             Who Needs a Writer is built for teams that want practical SEO content production from a single keyword, with clear pricing and a card-upfront trial.
           </p>
         </div>
@@ -52,24 +62,30 @@ export function HomeSeoSections() {
           {sections.map((section) => (
             <article
               key={section.title}
-              className="rounded-lg border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-[#0b1120]"
+              className="rounded-lg border border-slate-800 bg-[#0b1120] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)]"
             >
-              <h2 className="text-xl font-semibold text-slate-950 dark:text-white">
+              <h2 className="text-xl font-semibold text-white">
                 {section.title}
               </h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+              <p className="mt-2 text-sm leading-6 text-slate-300">
                 {section.body}
               </p>
             </article>
           ))}
         </div>
         <Link
-          href="/signup?trial=1&source=seo-section"
-          className="mt-8 inline-flex rounded-md bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 hover:bg-cyan-300"
+          href={isLoading ? "#pricing" : ctaHref}
+          onClick={() =>
+            trackFunnelEvent("homepage_cta_click", {
+              location: "seo_section",
+              destination: isLogged ? "pricing" : "signup",
+            })
+          }
+          className="mt-8 inline-flex rounded-xl bg-cyan-300 px-6 py-4 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200"
         >
-          Start the AI blog post generator trial
+          {isLogged ? "Choose a plan to start the trial" : "Start the AI blog post generator trial"}
         </Link>
-        <p className="mt-3 text-sm text-slate-500">
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
           5 credits included. Then your selected plan price/month. Cancel anytime. Card required.
         </p>
       </div>
