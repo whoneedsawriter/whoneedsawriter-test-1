@@ -180,16 +180,16 @@ export default function TrialCheckoutClient({
   }
 
   return (
-    <main className="min-h-screen bg-[#080a0f] text-white lg:h-[100dvh] lg:max-h-[100dvh] lg:overflow-hidden">
-      <div className="mx-auto grid min-h-screen max-w-7xl grid-cols-1 lg:h-[100dvh] lg:min-h-0 lg:grid-cols-[1.05fr_.95fr] lg:overflow-hidden">
-        <section className="px-4 py-6 sm:px-8 sm:py-8 lg:flex lg:h-[100dvh] lg:min-h-0 lg:items-center lg:overflow-hidden lg:px-12 lg:py-3 xl:px-14">
-          <div className="w-full">
+    <main className="min-h-screen bg-[#080a0f] text-white lg:h-[100dvh] lg:min-h-0 lg:max-h-[100dvh] lg:overflow-hidden">
+      <div className="mx-auto grid min-h-screen max-w-7xl grid-cols-1 lg:h-[100dvh] lg:min-h-0 lg:grid-cols-[1.04fr_.96fr] lg:overflow-hidden">
+        <section className="px-4 py-6 sm:px-8 sm:py-8 lg:flex lg:h-[100dvh] lg:min-h-0 lg:items-start lg:overflow-hidden lg:px-12 lg:py-0 xl:px-14">
+          <div className="w-full lg:pt-[clamp(28px,8vh,74px)]">
           <Link href="/pricing" className="text-sm font-medium text-[#33d6e2] hover:text-[#4cf0ff]">
             Back to pricing
           </Link>
 
-          <div className="mt-5 max-w-xl lg:mt-4">
-            <h1 className="text-3xl font-extrabold tracking-normal text-white lg:text-[34px]">Subscribing to</h1>
+          <div className="mt-5 max-w-xl lg:mt-5 lg:max-w-[520px]">
+            <h1 className="text-3xl font-extrabold tracking-normal text-white lg:text-[30px] xl:text-[34px]">Subscribing to</h1>
 
             <div className="mt-5 flex items-start justify-between gap-5 border-b border-white/10 pb-4 lg:mt-4">
               <div>
@@ -203,7 +203,7 @@ export default function TrialCheckoutClient({
               <p className="shrink-0 text-lg font-semibold text-white sm:text-xl">{renewalPrice}/mo</p>
             </div>
 
-            <dl className="mt-4 space-y-3 text-base sm:text-lg lg:space-y-2.5">
+            <dl className="mt-4 space-y-3 text-base sm:text-lg lg:space-y-2">
               <div className="flex items-center justify-between gap-4">
                 <dt className="text-[#8990a5]">Next charge</dt>
                 <dd className="font-semibold text-white">{renewalPrice}</dd>
@@ -218,7 +218,7 @@ export default function TrialCheckoutClient({
               </div>
             </dl>
 
-            <div className="mt-5 rounded-2xl border border-white/10 bg-[#0b1120] p-4 shadow-2xl lg:mt-4">
+            <div className="mt-5 rounded-2xl border border-white/10 bg-[#0b1120] p-4 shadow-2xl lg:mt-4 lg:p-3.5">
               <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-[#33d6e2]">
                 Secure payment details
               </p>
@@ -226,12 +226,12 @@ export default function TrialCheckoutClient({
               {provider === "stripe" ? (
                 <>
                   {isPreparingStripe && (
-                    <div className="rounded-xl border border-white/10 bg-[#111827] p-4 text-sm text-[#cbd5f5]">
+                    <div className="rounded-xl border border-white/10 bg-[#111827] p-3.5 text-sm text-[#cbd5f5]">
                       Preparing secure Stripe card fields...
                     </div>
                   )}
                   {setupError && (
-                    <div className="rounded-xl border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-200">
+                    <div className="rounded-xl border border-red-400/30 bg-red-500/10 p-3.5 text-sm text-red-200">
                       {setupError}
                     </div>
                   )}
@@ -248,13 +248,13 @@ export default function TrialCheckoutClient({
                   )}
                 </>
               ) : (
-                <div className="rounded-xl border border-white/10 bg-[#111827] p-4 text-sm leading-6 text-[#cbd5f5]">
+                <div className="rounded-xl border border-white/10 bg-[#111827] p-3.5 text-sm leading-6 text-[#cbd5f5]">
                   Your card details will open in a secure Lemon Squeezy overlay on this page. You will not be sent to a separate hosted checkout page.
                 </div>
               )}
             </div>
 
-            <label className="mt-4 flex cursor-pointer gap-3 rounded-xl border border-[#33d6e2]/40 bg-[#33d6e2]/10 p-3.5 text-sm leading-6 text-[#dbeafe]">
+            <label className="mt-4 flex cursor-pointer gap-3 rounded-xl border border-[#33d6e2]/40 bg-[#33d6e2]/10 p-3 text-sm leading-6 text-[#dbeafe] lg:leading-5">
               <input
                 type="checkbox"
                 className="mt-1 h-4 w-4 accent-[#33d6e2]"
@@ -284,15 +284,15 @@ export default function TrialCheckoutClient({
               )}
             </div>
 
-            <p className="mt-4 text-sm leading-6 text-[#8990a5]">
+            <p className="mt-4 text-sm leading-6 text-[#8990a5] lg:leading-5">
               All prices include applicable tax where required. You can cancel from Account/Billing before the trial ends.
             </p>
           </div>
           </div>
         </section>
 
-        <section className="border-t border-white/10 bg-[#101925] px-4 py-8 sm:px-8 lg:flex lg:h-[100dvh] lg:min-h-0 lg:items-center lg:overflow-hidden lg:border-l lg:border-t-0 lg:px-12 lg:py-3 xl:px-14">
-          <div className="mx-auto max-w-xl">
+        <section className="hidden border-t border-white/10 bg-[#101925] px-4 py-8 sm:px-8 lg:flex lg:h-[100dvh] lg:min-h-0 lg:items-start lg:overflow-hidden lg:border-l lg:border-t-0 lg:px-12 lg:py-0 xl:px-14">
+          <div className="mx-auto max-w-xl lg:pt-[clamp(86px,22vh,190px)]">
             <h2 className="text-2xl font-extrabold text-white sm:text-3xl lg:text-[32px]">How your free trial works</h2>
 
             <div className="mt-6 space-y-0 lg:mt-7">
@@ -373,7 +373,7 @@ function StripeTrialForm({
 
   return (
     <form onSubmit={submitTrial}>
-      <div className="rounded-xl border border-white/10 bg-[#111827] px-4 py-4">
+      <div className="rounded-xl border border-white/10 bg-[#111827] px-4 py-3.5">
         <CardElement
           options={{
             hidePostalCode: false,
@@ -396,7 +396,7 @@ function StripeTrialForm({
       <button
         type="submit"
         disabled={isSubmitting}
-        className="mt-5 w-full rounded-xl bg-[#33d6e2] px-7 py-3 font-bold text-[#020617] transition hover:bg-[#4cf0ff] disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-4 w-full rounded-xl bg-[#33d6e2] px-7 py-3 font-bold text-[#020617] transition hover:bg-[#4cf0ff] disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isSubmitting ? "Starting trial..." : "Start trial"}
       </button>
@@ -419,9 +419,9 @@ function TimelineItem({
     <div className="grid grid-cols-[24px_1fr] gap-4">
       <div className="flex flex-col items-center">
         <span className={`mt-1 h-4 w-4 rounded-full ${active ? "bg-[#00cfae]" : "bg-[#64748b]"}`} />
-        {!last && <span className={`mt-2 h-14 w-1 rounded-full sm:h-16 ${active ? "bg-[#00cfae]" : "bg-[#64748b]"}`} />}
+        {!last && <span className={`mt-2 h-12 w-1 rounded-full sm:h-14 ${active ? "bg-[#00cfae]" : "bg-[#64748b]"}`} />}
       </div>
-      <div className="pb-5 lg:pb-4">
+      <div className="pb-4 lg:pb-3">
         <h3 className="text-lg font-bold text-white">{title}</h3>
         <p className="mt-2 text-base leading-7 text-[#cbd5f5]">{children}</p>
       </div>
