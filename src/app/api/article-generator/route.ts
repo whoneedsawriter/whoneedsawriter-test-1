@@ -5,6 +5,7 @@ import { authOptions } from "@/config/auth";
 import { OpenAI } from "openai";
 import { refundSpentCredits, spendCredits } from "@/libs/credits";
 import { isTrialActive } from "@/libs/trial";
+import { GENERATION_ACCESS_REQUIRED_MESSAGE, hasGenerationAccess } from "@/libs/generation-access";
 
 // Function to get all articles for a user
 async function getAllArticles(userId: string) {
@@ -100,6 +101,29 @@ export async function POST(request: Request) {
   const userId = session?.user.id as string;
   
   try {
+    const accessUser = await prismaClient.user.findUnique({
+      where: { id: userId },
+      select: {
+        monthyBalance: true,
+        lifetimeBalance: true,
+        UserPlan: {
+          select: {
+            status: true,
+            validUntil: true,
+            trialEndsAt: true,
+            planId: true,
+          },
+        },
+      },
+    });
+
+    if (!hasGenerationAccess(accessUser)) {
+      return NextResponse.json(
+        { error: GENERATION_ACCESS_REQUIRED_MESSAGE, code: "TRIAL_REQUIRED" },
+        { status: 403 }
+      );
+    }
+
     const {batchId, text, prompt, is_godmode, model, balance_type, no_of_keyword, wordLimit, featuredImage, imageInArticle, specialRequests, enableExternalLinks, toneChoice, perspective, description, references } = await request.json();
     if (!text || typeof text !== "string") {
       return NextResponse.json({ error: "Invalid keyword" }, { status: 400 });

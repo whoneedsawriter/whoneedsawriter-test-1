@@ -2,6 +2,7 @@ import { prismaClient } from "@/prisma/db";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/config/auth";
+import { GENERATION_ACCESS_REQUIRED_MESSAGE, hasGenerationAccess } from "@/libs/generation-access";
 
 export async function GET(req: NextRequest) {
   try {
@@ -46,6 +47,29 @@ export async function POST(request: Request) {
   }
 
   try{
+    const accessUser = await prismaClient.user.findUnique({
+      where: { id: userId },
+      select: {
+        monthyBalance: true,
+        lifetimeBalance: true,
+        UserPlan: {
+          select: {
+            status: true,
+            validUntil: true,
+            trialEndsAt: true,
+            planId: true,
+          },
+        },
+      },
+    });
+
+    if (!hasGenerationAccess(accessUser)) {
+      return NextResponse.json(
+        { error: GENERATION_ACCESS_REQUIRED_MESSAGE, code: "TRIAL_REQUIRED" },
+        { status: 403 }
+      );
+    }
+
     let finalBatchName = batch.trim();
     let suffix = 1;
 

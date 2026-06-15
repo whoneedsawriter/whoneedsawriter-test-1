@@ -48,6 +48,19 @@ import { TourGuide, useTourStatus, articleGeneratorTourSteps, articleGeneratorGo
 import DashboardHeader from "@/components/organisms/DashboardHeader/DashboardHeader"; 
 import { UserContext, UserContextType } from "@/app/customProviders/UserProvider";
 import { PricingPopupContext } from "@/app/PricingPopupProvider";
+import { GENERATION_ACCESS_REQUIRED_MESSAGE, hasGenerationAccess } from "@/libs/generation-access";
+
+type AccountPlanResponse = {
+  SubscriptionPlan?: {
+    status?: string | null;
+    validUntil?: string | Date | null;
+    trialEndsAt?: string | Date | null;
+    planId?: number | null;
+  } | null;
+  SubscriptionDetails?: {
+    name?: string | null;
+  } | null;
+};
 
 const ArticleGenerator: React.FC = () => {
   
@@ -84,6 +97,43 @@ const ArticleGenerator: React.FC = () => {
 // Getting user details from the context
   const { user, isLoading, error } = useContext(UserContext) as UserContextType;
   const queryClient = useQueryClient();
+  const { data: accountData, isLoading: isAccountLoading } = useQuery<AccountPlanResponse>({
+    queryKey: ["account"],
+    queryFn: async () => {
+      const response = await fetch("/api/account");
+      if (!response.ok) {
+        throw new Error("Failed to fetch account status");
+      }
+      return response.json();
+    },
+    enabled: Boolean(user),
+  });
+  const canGenerate = hasGenerationAccess({
+    monthyBalance: user?.monthyBalance,
+    lifetimeBalance: user?.lifetimeBalance,
+    UserPlan: accountData?.SubscriptionPlan,
+  });
+  const [showTrialRequiredDialog, setShowTrialRequiredDialog] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading && user && !isAccountLoading && !canGenerate) {
+      setShowTrialRequiredDialog(true);
+    }
+  }, [canGenerate, isAccountLoading, isLoading, user]);
+
+  const requireGenerationAccess = () => {
+    if (isAccountLoading) {
+      toast.error("Checking your trial status. Please try again in a moment.");
+      return false;
+    }
+
+    if (!canGenerate) {
+      setShowTrialRequiredDialog(true);
+      return false;
+    }
+
+    return true;
+  };
   //console.log(user, isLoading);
 
   // Auto-start tour for new users
@@ -153,7 +203,11 @@ const ArticleGenerator: React.FC = () => {
         body: JSON.stringify(keyword)
       });
       if (!response.ok) {
-        throw new Error("Failed to create article");
+        const errorPayload = await response.json().catch(() => ({}));
+        const requestError = new Error(errorPayload.error || "Failed to create article");
+        (requestError as Error & { code?: string; status?: number }).code = errorPayload.code;
+        (requestError as Error & { code?: string; status?: number }).status = response.status;
+        throw requestError;
       }
       return response.json();
     },
@@ -161,6 +215,12 @@ const ArticleGenerator: React.FC = () => {
       //toast.success("Article generated successfully for Keyword: ");
     },
     onError: (error) => {
+      const requestError = error as Error & { code?: string; status?: number };
+      if (requestError.code === "TRIAL_REQUIRED" || requestError.status === 403) {
+        setShowTrialRequiredDialog(true);
+        return;
+      }
+
       // If the error is an abort error, don't show the toast
       if (error.name !== 'AbortError') {
         toast.error("Error creating article");
@@ -175,6 +235,9 @@ const ArticleGenerator: React.FC = () => {
   const sendKeywordsSequentially = async (keywords: string[]) => {
     if(keywords.length === 0){
       toast.error("Please enter Keywords");
+      return;
+    }
+    if (!requireGenerationAccess()) {
       return;
     }
     if(balance.credits == 0) {
@@ -206,6 +269,15 @@ const ArticleGenerator: React.FC = () => {
         },
         body: JSON.stringify({batch: batchValue, articleType: 'liteMode', articles: keywords.length})
       });
+
+      if (!response.ok) {
+        const errorPayload = await response.json().catch(() => ({}));
+        if (errorPayload.code === "TRIAL_REQUIRED" || response.status === 403) {
+          setShowTrialRequiredDialog(true);
+          return;
+        }
+        throw new Error(errorPayload.error || "Failed to create batch");
+      }
 
       const data = await response.json();
      // batchRef.current = data.assignedBatch;
@@ -259,6 +331,13 @@ const ArticleGenerator: React.FC = () => {
   const [showLowBalanceDialog, setShowLowBalanceDialog] = useState(false);
 
   const sendKeywordsSequentiallyGodmode = async (keywords: string[]) => {
+    if (keywords.length === 0) {
+      toast.error("Please enter Keywords");
+      return;
+    }
+    if (!requireGenerationAccess()) {
+      return;
+    }
     if (balance.credits == 0 ) {
       onPricingPopupOpen();
       return;
@@ -279,10 +358,6 @@ const ArticleGenerator: React.FC = () => {
       return;
     }
 
-    if (keywords.length === 0) {
-      toast.error("Please enter Keywords");
-      return;
-    }
     if (keywords.length > 10) {
       toast.error("10 Maximum keywords allowed in one batch");
       return;
@@ -303,6 +378,15 @@ const ArticleGenerator: React.FC = () => {
         },
         body: JSON.stringify({batch: batchValue, articleType: 'godmode', articles: keywords.length})
       });
+
+      if (!response.ok) {
+        const errorPayload = await response.json().catch(() => ({}));
+        if (errorPayload.code === "TRIAL_REQUIRED" || response.status === 403) {
+          setShowTrialRequiredDialog(true);
+          return;
+        }
+        throw new Error(errorPayload.error || "Failed to create batch");
+      }
 
       const data = await response.json();
       batchRef.current = data.assignedBatch;
@@ -1064,11 +1148,12 @@ seo content writing tips`}
               rounded="lg"
               _hover={{ bg: "blue.700", color: "white" }}
               onClick={() =>
-                isGodMode
+                requireGenerationAccess() &&
+                (isGodMode
                   ? sendKeywordsSequentiallyGodmode(lines)
-                  : sendKeywordsSequentially(lines)
+                  : sendKeywordsSequentially(lines))
               }
-              disabled={isProcessing}
+              disabled={isProcessing || isAccountLoading}
             >
               {isProcessing ? 'Generating...' : '✨ Generate Article(s)'}
             </Button>
@@ -1310,6 +1395,14 @@ seo content writing tips`}
         <LowBalanceDialog
           isOpen={showLowBalanceDialog}
           onClose={() => setShowLowBalanceDialog(false)}
+          router={router}
+        />
+      )}
+
+      {showTrialRequiredDialog && (
+        <TrialRequiredDialog
+          isOpen={showTrialRequiredDialog}
+          onClose={() => setShowTrialRequiredDialog(false)}
           router={router}
         />
       )}
@@ -1584,6 +1677,58 @@ const LowBalanceDialog = ({
             }}
           >
             Buy Credits
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+const TrialRequiredDialog = ({
+  isOpen,
+  onClose,
+  router,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  router: ReturnType<typeof useRouter>;
+}) => {
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[560px] bg-[#1b2232] border border-[#ffffff14]">
+        <DialogHeader>
+          <DialogTitle className="text-white mb-2">Start a trial to generate articles</DialogTitle>
+          <DialogDescription className="text-[#a9b1c3]">
+            {GENERATION_ACCESS_REQUIRED_MESSAGE} Your 7-day trial includes 5 credits, lets you test the AI blog post generator, and keeps your article history available in the dashboard.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="rounded-xl border border-[#ffffff14] bg-[#0e1322] p-4 text-sm text-[#cbd5f5]">
+          <ul className="list-disc pl-5 space-y-2">
+            <li>Choose Lite, Core, or Pro based on the article depth you need.</li>
+            <li>Generate research-backed drafts, SEO sections, and publishing assets.</li>
+            <li>Cancel before the trial ends if the plan is not right for you.</li>
+          </ul>
+        </div>
+        <DialogFooter className="text-white">
+          <Button
+            type="button"
+            variant="ghost"
+            color="#a9b1c3"
+            onClick={onClose}
+            _hover={{ bg: "#0e1322" }}
+          >
+            Not now
+          </Button>
+          <Button
+            type="button"
+            colorScheme="brand"
+            onClick={() => {
+              router.push("/pricing");
+              onClose();
+            }}
+          >
+            View plans
           </Button>
         </DialogFooter>
       </DialogContent>
