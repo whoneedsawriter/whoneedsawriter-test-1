@@ -5,7 +5,7 @@ import type { FormEvent, ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
+import { CardElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import { TRIAL_CREDITS, TRIAL_DAYS, formatPlanPrice } from "@/libs/trial";
 import { trackFunnelEvent } from "@/libs/analytics";
@@ -180,9 +180,9 @@ export default function TrialCheckoutClient({
   }
 
   return (
-    <main className="min-h-screen bg-[#080a0f] text-white lg:h-screen lg:overflow-hidden">
-      <div className="mx-auto grid min-h-screen max-w-7xl grid-cols-1 lg:h-screen lg:min-h-0 lg:grid-cols-[1.05fr_.95fr]">
-        <section className="px-4 py-6 sm:px-8 sm:py-8 lg:flex lg:h-screen lg:min-h-0 lg:items-center lg:px-12 lg:py-4 xl:px-14">
+    <main className="min-h-screen bg-[#080a0f] text-white lg:h-[100dvh] lg:max-h-[100dvh] lg:overflow-hidden">
+      <div className="mx-auto grid min-h-screen max-w-7xl grid-cols-1 lg:h-[100dvh] lg:min-h-0 lg:grid-cols-[1.05fr_.95fr] lg:overflow-hidden">
+        <section className="px-4 py-6 sm:px-8 sm:py-8 lg:flex lg:h-[100dvh] lg:min-h-0 lg:items-center lg:overflow-hidden lg:px-12 lg:py-3 xl:px-14">
           <div className="w-full">
           <Link href="/pricing" className="text-sm font-medium text-[#33d6e2] hover:text-[#4cf0ff]">
             Back to pricing
@@ -236,24 +236,10 @@ export default function TrialCheckoutClient({
                     </div>
                   )}
                   {stripeClientSecret && stripePromise && (
-                    <Elements
-                      stripe={stripePromise}
-                      options={{
-                        clientSecret: stripeClientSecret,
-                        appearance: {
-                          theme: "night",
-                          variables: {
-                            colorPrimary: "#33d6e2",
-                            colorBackground: "#0b1120",
-                            colorText: "#eef2f7",
-                            colorDanger: "#fb7185",
-                            borderRadius: "10px",
-                          },
-                        },
-                      }}
-                    >
+                    <Elements stripe={stripePromise}>
                       <StripeTrialForm
                         accepted={accepted}
+                        clientSecret={stripeClientSecret}
                         planId={plan.id}
                         planName={plan.name}
                         provider={provider}
@@ -305,7 +291,7 @@ export default function TrialCheckoutClient({
           </div>
         </section>
 
-        <section className="border-t border-white/10 bg-[#101925] px-4 py-8 sm:px-8 lg:flex lg:h-screen lg:min-h-0 lg:items-center lg:border-l lg:border-t-0 lg:px-12 lg:py-4 xl:px-14">
+        <section className="border-t border-white/10 bg-[#101925] px-4 py-8 sm:px-8 lg:flex lg:h-[100dvh] lg:min-h-0 lg:items-center lg:overflow-hidden lg:border-l lg:border-t-0 lg:px-12 lg:py-3 xl:px-14">
           <div className="mx-auto max-w-xl">
             <h2 className="text-2xl font-extrabold text-white sm:text-3xl lg:text-[32px]">How your free trial works</h2>
 
@@ -333,11 +319,13 @@ export default function TrialCheckoutClient({
 
 function StripeTrialForm({
   accepted,
+  clientSecret,
   planId,
   planName,
   provider,
 }: {
   accepted: boolean;
+  clientSecret: string;
   planId: number;
   planName: string;
   provider: string;
@@ -360,13 +348,17 @@ function StripeTrialForm({
       return;
     }
 
+    const cardElement = elements.getElement(CardElement);
+    if (!cardElement) {
+      toast.error("Secure card field is still loading.");
+      return;
+    }
+
     setIsSubmitting(true);
-    const { error } = await stripe.confirmSetup({
-      elements,
-      confirmParams: {
-        return_url: `${window.location.origin}/dashboard?trial=started&plan=${encodeURIComponent(planName)}`,
+    const { error } = await stripe.confirmCardSetup(clientSecret, {
+      payment_method: {
+        card: cardElement,
       },
-      redirect: "if_required",
     });
 
     if (error) {
@@ -381,7 +373,26 @@ function StripeTrialForm({
 
   return (
     <form onSubmit={submitTrial}>
-      <PaymentElement />
+      <div className="rounded-xl border border-white/10 bg-[#111827] px-4 py-4">
+        <CardElement
+          options={{
+            hidePostalCode: false,
+            style: {
+              base: {
+                color: "#eef2f7",
+                fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
+                fontSize: "16px",
+                "::placeholder": {
+                  color: "#8990a5",
+                },
+              },
+              invalid: {
+                color: "#fb7185",
+              },
+            },
+          }}
+        />
+      </div>
       <button
         type="submit"
         disabled={isSubmitting}
