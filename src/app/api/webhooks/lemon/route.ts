@@ -12,6 +12,9 @@ interface LemonSqueezyWebhookEvent {
     event_name: string;
     custom_data?: {
       user_id: string;
+      plan_id?: string;
+      checkout_type?: string;
+      billing_terms_version?: string;
     };
   };
   data: {
@@ -52,6 +55,11 @@ function getBalanceFromVariantId(variantId: number) {
   // Map your LemonSqueezy variant IDs to balances
   // You'll need to replace these with your actual variant IDs from LemonSqueezy
   switch (variantId.toString()) { 
+    case '1150108':
+      monthyBalance = 5;
+      monthyPlan = 5;
+      break;
+
     // Basic Monthly Plan
     case '914683':
       monthyBalance = 20;
@@ -207,6 +215,8 @@ export async function POST(req: NextRequest): Promise<Response> {
              cancelAtPeriodEnd: Boolean(subscription.attributes.ends_at),
              cancelUrl: subscription.attributes.urls?.customer_portal,
              updateUrl: subscription.attributes.urls?.update_payment_method,
+             billingTermsAcceptedAt: isTrialing ? new Date() : undefined,
+             billingTermsVersion: event.meta.custom_data?.billing_terms_version,
              cancelled: 0,
           },
           create: {
@@ -225,6 +235,8 @@ export async function POST(req: NextRequest): Promise<Response> {
             cancelAtPeriodEnd: Boolean(subscription.attributes.ends_at),
             cancelUrl: subscription.attributes.urls?.customer_portal,
             updateUrl: subscription.attributes.urls?.update_payment_method,
+            billingTermsAcceptedAt: isTrialing ? new Date() : undefined,
+            billingTermsVersion: event.meta.custom_data?.billing_terms_version,
           },
         });
 

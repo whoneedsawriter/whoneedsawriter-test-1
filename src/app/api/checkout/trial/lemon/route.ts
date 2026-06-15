@@ -1,0 +1,179 @@
+import { authOptions } from "@/config/auth";
+import { BILLING_TERMS_VERSION, getTrialDates } from "@/libs/trial";
+import { prismaClient } from "@/prisma/db";
+import { HttpStatusCode } from "axios";
+import { getServerSession } from "next-auth";
+import { NextResponse } from "next/server";
+
+export async function POST(request: Request) {
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user?.email || !session.user.id) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: HttpStatusCode.Unauthorized }
+    );
+  }
+
+  const { planId, billingTermsVersion } = await request.json().catch(() => ({
+    planId: null,
+    billingTermsVersion: null,
+  }));
+
+  if (billingTermsVersion !== BILLING_TERMS_VERSION) {
+    return NextResponse.json(
+      { error: "Billing terms are out of date. Please refresh and try again." },
+      { status: HttpStatusCode.BadRequest }
+    );
+  }
+
+  const plan = await prismaClient.subscriptionPlan.findUnique({
+    where: { id: Number(planId) },
+  });
+
+  if (!plan || plan.name.toLowerCase() !== "starter" || plan.currency !== "USD") {
+    return NextResponse.json(
+      { error: "Starter trial plan was not found." },
+      { status: HttpStatusCode.BadRequest }
+    );
+  }
+
+  const user = await prismaClient.user.findUnique({
+    where: { id: session.user.id },
+    include: { UserPlan: true },
+  });
+
+  if (!user?.email) {
+    return NextResponse.json(
+      { error: "User not found." },
+      { status: HttpStatusCode.NotFound }
+    );
+  }
+
+  const existingTrial = await prismaClient.trialUsage.findUnique({
+    where: { email: user.email.toLowerCase() },
+  });
+
+  if (existingTrial) {
+    return NextResponse.json(
+      { error: "A trial has already been used for this email." },
+      { status: HttpStatusCode.Conflict }
+    );
+  }
+
+  const hasActivePlan =
+    user.UserPlan &&
+    user.UserPlan.cancelled === 0 &&
+    user.UserPlan.status !== "checkout_pending" &&
+    (!user.UserPlan.validUntil || user.UserPlan.validUntil > new Date());
+
+  if (hasActivePlan) {
+    return NextResponse.json(
+      { error: "You already have an active subscription." },
+      { status: HttpStatusCode.Conflict }
+    );
+  }
+
+  const apiKey = process.env.LEMONSQUEEZY_API_KEY;
+  const storeId = process.env.LEMONSQUEEZY_STORE_ID;
+
+  if (!apiKey || !storeId) {
+    return NextResponse.json(
+      { error: "Missing Lemon Squeezy configuration." },
+      { status: HttpStatusCode.InternalServerError }
+    );
+  }
+
+  const { trialEndsAt } = getTrialDates();
+
+  await prismaClient.userPlan.upsert({
+    where: { userId: user.id },
+    update: {
+      planId: plan.id,
+      provider: "lemon-squeezy",
+      status: "checkout_pending",
+      lemonVariantId: plan.priceId,
+      billingTermsVersion,
+      trialEndsAt,
+      trialCreditsGranted: 0,
+      trialCreditsUsed: 0,
+      cancelled: 0,
+    },
+    create: {
+      userId: user.id,
+      planId: plan.id,
+      provider: "lemon-squeezy",
+      status: "checkout_pending",
+      lemonVariantId: plan.priceId,
+      billingTermsVersion,
+      trialEndsAt,
+      trialCreditsGranted: 0,
+      trialCreditsUsed: 0,
+      cancelled: 0,
+    },
+  });
+
+  const response = await fetch("https://api.lemonsqueezy.com/v1/checkouts", {
+    method: "POST",
+    headers: {
+      Accept: "application/vnd.api+json",
+      "Content-Type": "application/vnd.api+json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      data: {
+        type: "checkouts",
+        attributes: {
+          product_options: {
+            redirect_url: `${process.env.NEXTAUTH_URL}/dashboard?trial=started&plan=${encodeURIComponent(plan.name)}`,
+          },
+          checkout_options: {
+            embed: true,
+            media: true,
+            logo: true,
+          },
+          checkout_data: {
+            email: user.email,
+            ...(user.name && { name: user.name }),
+            custom: {
+              user_id: user.id,
+              plan_id: String(plan.id),
+              checkout_type: "trial",
+              billing_terms_version: billingTermsVersion,
+            },
+          },
+          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        },
+        relationships: {
+          store: {
+            data: {
+              type: "stores",
+              id: storeId,
+            },
+          },
+          variant: {
+            data: {
+              type: "variants",
+              id: plan.priceId,
+            },
+          },
+        },
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    console.error("Lemon Squeezy checkout error:", await response.text());
+    return NextResponse.json(
+      { error: "Failed to create checkout." },
+      { status: HttpStatusCode.InternalServerError }
+    );
+  }
+
+  const checkout = await response.json();
+
+  return NextResponse.json({
+    checkoutUrl: checkout.data.attributes.url,
+    checkoutId: checkout.data.id,
+  });
+}

@@ -37,6 +37,25 @@ export default async function TrialCheckoutPage({
     redirect("/pricing");
   }
 
+  if (plan.name.toLowerCase() !== "starter") {
+    const starterPlan = await prismaClient.subscriptionPlan.findFirst({
+      where: {
+        name: {
+          equals: "Starter",
+          mode: "insensitive",
+        },
+        currency: plan.currency || "USD",
+      },
+      orderBy: { price: "asc" },
+    });
+
+    if (!starterPlan) {
+      redirect("/pricing");
+    }
+
+    redirect(`/checkout/trial?planId=${starterPlan.id}`);
+  }
+
   const { trialEndsAt, firstChargeDate } = getTrialDates();
 
   return (
@@ -50,6 +69,7 @@ export default async function TrialCheckoutPage({
       trialEndsAt={trialEndsAt.toISOString()}
       firstChargeDate={firstChargeDate.toISOString()}
       billingTermsVersion={BILLING_TERMS_VERSION}
+      stripePublishableKey={process.env.STRIPE_PUBLIC_KEY || ""}
     />
   );
 }

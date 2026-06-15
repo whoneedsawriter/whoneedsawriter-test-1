@@ -62,6 +62,77 @@ type AccountPlanResponse = {
   } | null;
 };
 
+type SubscriptionProductPlan = {
+  id: number;
+  name: string;
+  currency: string;
+};
+
+async function detectCountryNameForTrial() {
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
+  if (!apiKey) return "";
+
+  const geoResponse = await fetch(`https://www.googleapis.com/geolocation/v1/geolocate?key=${apiKey}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      homeMobileCountryCode: 310,
+      homeMobileNetworkCode: 410,
+      radioType: "gsm",
+      carrier: "Vodafone",
+      considerIp: true,
+    }),
+  });
+  const geoData = await geoResponse.json();
+  const { lat, lng } = geoData.location || {};
+  if (!lat || !lng) return "";
+
+  const geocodeResponse = await fetch(
+    `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`
+  );
+  const geocodeData = await geocodeResponse.json();
+  const addressComponents = geocodeData.results?.[0]?.address_components || [];
+  const country = addressComponents.find((component: { types: string[] }) =>
+    component.types.includes("country")
+  );
+
+  return country?.long_name || "";
+}
+
+async function resolveStarterTrialPlanId() {
+  const response = await fetch("/api/products");
+  if (!response.ok) {
+    throw new Error("Unable to load trial plans.");
+  }
+
+  const productData = await response.json();
+  const subscriptionPlans: SubscriptionProductPlan[] = productData.subscriptionPlans || [];
+  let preferredCurrency = "USD";
+
+  try {
+    const countryName = await detectCountryNameForTrial();
+    preferredCurrency = countryName === "India" ? "INR" : "USD";
+  } catch (error) {
+    preferredCurrency = "USD";
+  }
+
+  const starterPlan =
+    subscriptionPlans.find(
+      (plan) => plan.name.toLowerCase() === "starter" && plan.currency === preferredCurrency
+    ) ||
+    subscriptionPlans.find(
+      (plan) => plan.name.toLowerCase() === "starter" && plan.currency === "USD"
+    );
+
+  if (!starterPlan) {
+    throw new Error("Starter trial plan is not available right now.");
+  }
+
+  return starterPlan.id;
+}
+
 const ArticleGenerator: React.FC = () => {
   
   const router = useRouter();
@@ -1693,6 +1764,22 @@ const TrialRequiredDialog = ({
   onClose: () => void;
   router: ReturnType<typeof useRouter>;
 }) => {
+  const [isStartingTrial, setIsStartingTrial] = useState(false);
+
+  const startTrial = async () => {
+    setIsStartingTrial(true);
+    try {
+      const starterPlanId = await resolveStarterTrialPlanId();
+      router.push(`/checkout/trial?planId=${starterPlanId}`);
+      onClose();
+    } catch (error: any) {
+      toast.error(error.message || "Unable to start trial. Please choose a plan from pricing.");
+      router.push("/pricing");
+      onClose();
+    } finally {
+      setIsStartingTrial(false);
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -1723,12 +1810,11 @@ const TrialRequiredDialog = ({
           <Button
             type="button"
             colorScheme="brand"
-            onClick={() => {
-              router.push("/pricing");
-              onClose();
-            }}
+            onClick={startTrial}
+            isLoading={isStartingTrial}
+            loadingText="Starting..."
           >
-            View plans
+            Start Trial
           </Button>
         </DialogFooter>
       </DialogContent>
