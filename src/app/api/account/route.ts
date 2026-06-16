@@ -15,11 +15,30 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const SubscriptionPlan = await prismaClient.userPlan.findFirst({
-      where: { userId: session?.user?.id }
+    const rawSubscriptionPlan = await prismaClient.userPlan.findFirst({
+      where: { userId: session?.user?.id },
     });
+
+    const isFutureDate = (value?: Date | null) =>
+      Boolean(value && value.getTime() > Date.now());
+
+    const hasVisibleSubscription =
+      !!rawSubscriptionPlan?.planId &&
+      rawSubscriptionPlan.status !== "checkout_pending" &&
+      rawSubscriptionPlan.status !== "expired" &&
+      rawSubscriptionPlan.status !== "past_due" &&
+      (
+        rawSubscriptionPlan.status === "trialing"
+          ? isFutureDate(rawSubscriptionPlan.trialEndsAt)
+          : rawSubscriptionPlan.status === "canceled"
+            ? isFutureDate(rawSubscriptionPlan.validUntil)
+            : !rawSubscriptionPlan.validUntil || isFutureDate(rawSubscriptionPlan.validUntil)
+      );
+
+    const SubscriptionPlan = hasVisibleSubscription ? rawSubscriptionPlan : null;
     let SubscriptionDetails;
-    if(SubscriptionPlan && SubscriptionPlan.planId !== null){
+
+    if (SubscriptionPlan && SubscriptionPlan.planId !== null) {
         SubscriptionDetails = await prismaClient.subscriptionPlan.findFirst({
           where: { id : SubscriptionPlan.planId }
         });
