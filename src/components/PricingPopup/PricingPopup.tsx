@@ -240,7 +240,10 @@ import { useQuery } from "@tanstack/react-query";
                     return '';
                   };
 
-                  const isCurrentPlan = planData?.SubscriptionPlan && planData.SubscriptionPlan.planId === plan.id;
+                  const currentUserPlan = planData?.SubscriptionPlan;
+                  const isSamePlan = currentUserPlan?.planId === plan.id;
+                  const isPendingTrialSetup = isSamePlan && currentUserPlan?.status === "checkout_pending";
+                  const isCurrentPlan = isSamePlan && !isPendingTrialSetup;
                   const isProcessing = processingPlan === plan.priceId;
 
                   return (
@@ -307,21 +310,30 @@ import { useQuery } from "@tanstack/react-query";
                         </div>
                       </div>
 
-                      <button
-                        onClick={() => payStripeSubscription(plan.priceId, plan.name)}
-                        disabled={isCurrentPlan || isProcessing}
-                        className={`mt-6 w-full py-3 rounded-xl bg-[#33d6e2] text-[#0b1120] font-semibold text-sm hover:bg-[#4cf0ff] transition ${
-                          isCurrentPlan || isProcessing
-                            ? 'cursor-not-allowed opacity-50'
-                            : 'cursor-pointer'
-                        }`}
-                      >
-                        {isCurrentPlan
-                          ? 'Current Plan'
-                          : isProcessing
-                          ? 'Processing Payment...'
-                          : 'Upgrade Now'}
-                      </button>
+                      {isPendingTrialSetup ? (
+                        <a
+                          href={`/checkout/trial?planId=${plan.id}`}
+                          className="mt-6 block w-full py-3 rounded-xl bg-[#33d6e2] text-center text-[#0b1120] font-semibold text-sm hover:bg-[#4cf0ff] transition"
+                        >
+                          Continue trial
+                        </a>
+                      ) : (
+                        <button
+                          onClick={() => payStripeSubscription(plan.priceId, plan.name)}
+                          disabled={isCurrentPlan || isProcessing}
+                          className={`mt-6 w-full py-3 rounded-xl bg-[#33d6e2] text-[#0b1120] font-semibold text-sm hover:bg-[#4cf0ff] transition ${
+                            isCurrentPlan || isProcessing
+                              ? 'cursor-not-allowed opacity-50'
+                              : 'cursor-pointer'
+                          }`}
+                        >
+                          {isCurrentPlan
+                            ? 'Current Plan'
+                            : isProcessing
+                            ? 'Processing Payment...'
+                            : 'Upgrade Now'}
+                        </button>
+                      )}
                     </div>
                   );
                 })}

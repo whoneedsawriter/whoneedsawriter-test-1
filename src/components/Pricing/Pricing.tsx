@@ -259,6 +259,9 @@ fetch(geoUrl, {
           if (name === 'Ultimate') return 'For agencies & power users';
           return '';
         };
+        const currentUserPlan = planData?.SubscriptionPlan;
+        const isSamePlan = currentUserPlan?.planId === plan.id;
+        const isPendingTrialSetup = isSamePlan && currentUserPlan?.status === "checkout_pending";
 
         return (
         <div 
@@ -322,7 +325,7 @@ fetch(geoUrl, {
             </div>
           </div>
 
-          {planData?.SubscriptionPlan && planData.SubscriptionPlan.planId === plan.id ? (
+          {isSamePlan && !isPendingTrialSetup ? (
             <button
               disabled
               className="mt-6 w-full py-3 rounded-xl bg-[#33d6e2] text-[#0b1120] font-semibold text-sm cursor-not-allowed opacity-50"
@@ -334,7 +337,7 @@ fetch(geoUrl, {
               href={isLogged ? `/checkout/trial?planId=${plan.id}` : `/signup?trial=1&planId=${plan.id}`}
               className="mt-6 block w-full py-3 rounded-xl bg-[#33d6e2] text-[#0b1120] font-semibold text-sm hover:bg-[#4cf0ff] transition text-center"
             >
-              Start free for 7 days
+              {isPendingTrialSetup ? "Continue trial" : "Start free for 7 days"}
             </a>
           )}
           <p className="mt-3 text-xs leading-5 text-[#8990a5]">
