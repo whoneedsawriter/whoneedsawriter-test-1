@@ -8,7 +8,7 @@ export const useUserPlanStatus = () => {
     queryFn: () => axios.get<UserPlanStatusResponse>("/api/user-plan-status"),
   });
 
-  const hasPlan = data?.data?.planName && data.data.planName !== "Free";
+  const hasPlan = Boolean(data?.data?.hasUsablePlan);
 
   return {
     planData: data?.data,

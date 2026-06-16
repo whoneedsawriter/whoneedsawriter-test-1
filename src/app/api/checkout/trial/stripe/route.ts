@@ -7,15 +7,15 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
-async function validateStarterTrial(planId: unknown, userId: string) {
+async function validateStripeTrialPlan(planId: unknown, userId: string) {
   const plan = await prismaClient.subscriptionPlan.findUnique({
     where: { id: Number(planId) },
   });
 
-  if (!plan || plan.name.toLowerCase() !== "starter" || plan.currency !== "INR") {
+  if (!plan || plan.currency !== "INR" || !plan.priceId) {
     return {
       error: NextResponse.json(
-        { error: "Starter trial plan was not found." },
+        { error: "Selected Stripe trial plan was not found." },
         { status: HttpStatusCode.BadRequest }
       ),
     };
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const validated = await validateStarterTrial(planId, session.user.id);
+  const validated = await validateStripeTrialPlan(planId, session.user.id);
   if (validated.error) return validated.error;
 
   const { plan, user } = validated;

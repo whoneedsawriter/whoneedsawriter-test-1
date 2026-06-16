@@ -31,9 +31,9 @@ export async function POST(request: Request) {
     where: { id: Number(planId) },
   });
 
-  if (!plan || plan.name.toLowerCase() !== "starter" || plan.currency !== "USD") {
+  if (!plan || plan.currency !== "USD" || !plan.priceId) {
     return NextResponse.json(
-      { error: "Starter trial plan was not found." },
+      { error: "Selected Lemon Squeezy trial plan was not found." },
       { status: HttpStatusCode.BadRequest }
     );
   }
