@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { Routes } from "@/data/routes";
 import { trackFunnelEvent } from "@/libs/analytics";
 import { useIsLogged } from "@/hooks/useIsLogged";
 
@@ -41,10 +40,8 @@ const sections = [
 ];
 
 export function HomeSeoSections() {
-  const { isLogged, isLoading } = useIsLogged();
-  const ctaHref = isLogged
-    ? `${Routes.pricing}#pricing`
-    : `${Routes.signUp}?trial=1&source=seo-section`;
+  const { isLogged } = useIsLogged();
+  const ctaHref = "/checkout/trial";
 
   return (
     <>
@@ -107,16 +104,16 @@ export function HomeSeoSections() {
               </ul>
 
               <Link
-                href={isLoading ? "#pricing" : ctaHref}
+                href={ctaHref}
                 onClick={() =>
                   trackFunnelEvent("homepage_cta_click", {
                     location: "trial_section",
-                    destination: isLogged ? "pricing" : "signup",
+                    destination: isLogged ? "trial_checkout" : "signup_trial",
                   })
                 }
                 className="mt-5 inline-flex w-full items-center justify-center rounded-lg bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200"
               >
-                {isLogged ? "Choose a plan to start the trial" : "Start the AI blog post generator trial"}
+                Start the trial
               </Link>
               <p className="mt-3 text-xs leading-5 text-slate-400">
                 Card required before the trial starts. Today&apos;s charge is zero.

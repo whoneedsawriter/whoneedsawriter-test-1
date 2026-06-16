@@ -1,6 +1,7 @@
 import { authOptions } from "@/config/auth";
 import { prismaClient } from "@/prisma/db";
 import { getServerSession } from "next-auth";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import TrialCheckoutClient from "./trial-checkout-client";
 import { BILLING_TERMS_VERSION, getTrialDates } from "@/libs/trial";
@@ -19,22 +20,45 @@ export default async function TrialCheckoutPage({
   searchParams: { planId?: string };
 }) {
   const session = await getServerSession(authOptions);
-  const planId = Number(searchParams.planId);
+  const planId = searchParams.planId ? Number(searchParams.planId) : null;
 
   if (!session?.user?.email) {
     redirect(`/signup?trial=1${planId ? `&planId=${planId}` : ""}`);
   }
 
-  if (!planId || Number.isNaN(planId)) {
-    redirect("/pricing");
-  }
-
-  const plan = await prismaClient.subscriptionPlan.findUnique({
-    where: { id: planId },
-  });
+  let plan = planId && !Number.isNaN(planId)
+    ? await prismaClient.subscriptionPlan.findUnique({
+        where: { id: planId },
+      })
+    : null;
 
   if (!plan) {
-    redirect("/pricing");
+    const countryCode = headers().get("x-vercel-ip-country");
+    const preferredCurrency = countryCode === "IN" ? "INR" : "USD";
+    plan =
+      (await prismaClient.subscriptionPlan.findFirst({
+        where: {
+          name: {
+            equals: "Starter",
+            mode: "insensitive",
+          },
+          currency: preferredCurrency,
+        },
+        orderBy: { price: "asc" },
+      })) ||
+      (await prismaClient.subscriptionPlan.findFirst({
+        where: {
+          name: {
+            equals: "Starter",
+            mode: "insensitive",
+          },
+        },
+        orderBy: { price: "asc" },
+      }));
+
+    if (!plan) {
+      redirect("/pricing");
+    }
   }
 
   if (plan.name.toLowerCase() !== "starter") {

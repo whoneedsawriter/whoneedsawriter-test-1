@@ -34,6 +34,8 @@ const SignUp = () => {
   const callbackUrl =
     typeof window !== "undefined" && planId
       ? `${window.location.origin}/checkout/trial?planId=${planId}`
+      : typeof window !== "undefined" && trialRequested
+        ? `${window.location.origin}/checkout/trial`
       : typeof window !== "undefined"
         ? `${window.location.origin}/dashboard`
         : "";
