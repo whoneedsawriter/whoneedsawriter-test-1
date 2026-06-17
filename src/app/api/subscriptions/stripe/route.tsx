@@ -4,7 +4,6 @@ import { HttpStatusCode } from "axios";
 import { prismaClient } from "@/prisma/db";
 import { authOptions } from "@/config/auth";
 import { stripeClient } from "@/libs/stripe";
-import { BILLING_TERMS_VERSION, TRIAL_DAYS } from "@/libs/trial";
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
@@ -27,13 +26,12 @@ export async function POST(request: Request) {
     );
   }
 
-const { priceId, name, planId, billingTermsVersion } = await request.json();
+const { priceId, name, planId } = await request.json();
 const selectedPlan = planId
   ? await prismaClient.subscriptionPlan.findUnique({ where: { id: Number(planId) } })
   : null;
 const checkoutPriceId = selectedPlan?.priceId || priceId;
 const checkoutPlanName = selectedPlan?.name || name;
-const startTrial = Boolean(selectedPlan && billingTermsVersion === BILLING_TERMS_VERSION);
 
 if (!checkoutPriceId) {
   return NextResponse.json(
@@ -48,14 +46,11 @@ try{
     line_items: [{ price: checkoutPriceId, quantity: 1 }],
     mode: "subscription",
     customer_email: session.user.email,
-    payment_method_collection: startTrial ? "always" : undefined,
-    subscription_data: startTrial
+    subscription_data: selectedPlan
       ? {
-          trial_period_days: TRIAL_DAYS,
           metadata: {
             userId: user.id,
-            planId: String(selectedPlan?.id),
-            billingTermsVersion,
+            planId: String(selectedPlan.id),
           },
         }
       : undefined,
@@ -63,8 +58,7 @@ try{
       ? {
           userId: user.id,
           planId: String(selectedPlan.id),
-          checkoutType: startTrial ? "trial" : "subscription",
-          billingTermsVersion: billingTermsVersion || "",
+          checkoutType: "subscription",
         }
       : undefined,
     success_url: `${process.env.NEXTAUTH_URL}/article-generator?payment=success&type=subscription&plan=${checkoutPlanName}`,

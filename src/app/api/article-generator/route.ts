@@ -5,7 +5,12 @@ import { authOptions } from "@/config/auth";
 import { OpenAI } from "openai";
 import { refundSpentCredits, spendCredits } from "@/libs/credits";
 import { isTrialActive } from "@/libs/trial";
-import { GENERATION_ACCESS_REQUIRED_MESSAGE, hasGenerationAccess } from "@/libs/generation-access";
+import {
+  GENERATION_ACCESS_REQUIRED_MESSAGE,
+  TRIAL_ENDED_UPGRADE_MESSAGE,
+  hasGenerationAccess,
+  isTrialCreditsExhausted,
+} from "@/libs/generation-access";
 
 // Function to get all articles for a user
 async function getAllArticles(userId: string) {
@@ -111,6 +116,8 @@ export async function POST(request: Request) {
             status: true,
             validUntil: true,
             trialEndsAt: true,
+            trialCreditsGranted: true,
+            trialCreditsUsed: true,
             planId: true,
           },
         },
@@ -118,8 +125,12 @@ export async function POST(request: Request) {
     });
 
     if (!hasGenerationAccess(accessUser)) {
+      const trialEnded = isTrialCreditsExhausted(accessUser?.UserPlan);
       return NextResponse.json(
-        { error: GENERATION_ACCESS_REQUIRED_MESSAGE, code: "TRIAL_REQUIRED" },
+        {
+          error: trialEnded ? TRIAL_ENDED_UPGRADE_MESSAGE : GENERATION_ACCESS_REQUIRED_MESSAGE,
+          code: trialEnded ? "TRIAL_ENDED" : "TRIAL_REQUIRED",
+        },
         { status: 403 }
       );
     }

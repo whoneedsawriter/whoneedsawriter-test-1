@@ -296,11 +296,16 @@ switch (stripeProductId) {
         }
       }
 
+      const previousUserPlan = await prismaClient.userPlan.findUnique({
+        where: { userId: user1.id },
+      });
+
       await prismaClient.userPlan.upsert({
         where: {
           userId: user1?.id,
         },
         update: {
+          planId: subscriptionPlan.id,
           provider: "stripe",
           stripeSubscriptionId: subscription.id,
           stripeCustomerId: subscription.customer as string,
@@ -361,6 +366,37 @@ switch (stripeProductId) {
           trialEndsAt: trialEndsAt?.toISOString() || "",
         });
       } else {
+        if (
+          previousUserPlan?.status === "trialing" &&
+          previousUserPlan.stripeSubscriptionId &&
+          previousUserPlan.stripeSubscriptionId !== subscription.id
+        ) {
+          await stripeClient.subscriptions.cancel(previousUserPlan.stripeSubscriptionId).catch((error) => {
+            console.error("Unable to cancel superseded Stripe trial:", error);
+          });
+        }
+        if (
+          previousUserPlan?.status === "trialing" &&
+          previousUserPlan.lemonSubscriptionId
+        ) {
+          const apiKey = process.env.LEMONSQUEEZY_API_KEY;
+          if (apiKey) {
+            await fetch(
+              `https://api.lemonsqueezy.com/v1/subscriptions/${previousUserPlan.lemonSubscriptionId}`,
+              {
+                method: "DELETE",
+                headers: {
+                  Accept: "application/vnd.api+json",
+                  "Content-Type": "application/vnd.api+json",
+                  Authorization: `Bearer ${apiKey}`,
+                },
+              }
+            ).catch((error) => {
+              console.error("Unable to cancel superseded Lemon trial:", error);
+            });
+          }
+        }
+
         await prismaClient.user.update({
           where: {
             id: user1?.id,

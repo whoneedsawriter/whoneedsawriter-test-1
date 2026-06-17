@@ -211,7 +211,7 @@ export const SidebarMenuItems: React.FC<MenuProps> = ({
   const textColor = "#7f8aa3";
   const LogoComponent = useColorModeValue(LogoLight, Logo);
   const router = useRouter();
-  const { hasPlan } = useUserPlanStatus();
+  const { badgeLabel } = useUserPlanStatus();
 
   // Helper function to handle navigation and close drawer
   const handleNavigation = (route: Routes | string) => {
@@ -415,7 +415,7 @@ export const SidebarMenuItems: React.FC<MenuProps> = ({
               position="relative"
             >
               <TbUser size="16px" color="#60a5fa" />
-              {hasPlan && (
+              {badgeLabel && (
                 <Badge
                   position="absolute"
                   top="90%"
@@ -429,7 +429,7 @@ export const SidebarMenuItems: React.FC<MenuProps> = ({
                   px="4px"
                   py="1px"
                 >
-                  PRO
+                  {badgeLabel}
                 </Badge>
               )}
             </Flex>

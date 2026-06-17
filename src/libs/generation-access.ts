@@ -3,6 +3,8 @@ type GenerationAccessUserPlan = {
   validUntil?: Date | string | null;
   trialEndsAt?: Date | string | null;
   planId?: number | null;
+  trialCreditsGranted?: number | null;
+  trialCreditsUsed?: number | null;
 };
 
 type GenerationAccessUser = {
@@ -23,7 +25,9 @@ export function hasGenerationAccess(user?: GenerationAccessUser | null) {
   }
 
   if (userPlan.status === "trialing") {
-    return isFutureDate(userPlan.trialEndsAt);
+    const granted = Number(userPlan.trialCreditsGranted || 0);
+    const used = Number(userPlan.trialCreditsUsed || 0);
+    return isFutureDate(userPlan.trialEndsAt) && granted - used > 0;
   }
 
   if (userPlan.status === "active") {
@@ -50,3 +54,17 @@ export function hasGenerationAccess(user?: GenerationAccessUser | null) {
 
 export const GENERATION_ACCESS_REQUIRED_MESSAGE =
   "Start a trial or choose a paid plan before generating articles.";
+
+export function isTrialCreditsExhausted(userPlan?: GenerationAccessUserPlan | null) {
+  if (!userPlan || userPlan.status !== "trialing") {
+    return false;
+  }
+
+  const granted = Number(userPlan.trialCreditsGranted || 0);
+  const used = Number(userPlan.trialCreditsUsed || 0);
+
+  return isFutureDate(userPlan.trialEndsAt) && granted > 0 && granted - used <= 0;
+}
+
+export const TRIAL_ENDED_UPGRADE_MESSAGE =
+  "Your trial has ended. Upgrade your plan to continue generating articles.";

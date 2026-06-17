@@ -9,10 +9,12 @@ export const useUserPlanStatus = () => {
   });
 
   const hasPlan = Boolean(data?.data?.hasUsablePlan);
+  const badgeLabel = data?.data?.badgeLabel;
 
   return {
     planData: data?.data,
     hasPlan,
+    badgeLabel,
     isLoading,
     ...rest,
   };

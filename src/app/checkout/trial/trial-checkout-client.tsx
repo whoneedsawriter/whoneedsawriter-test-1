@@ -184,11 +184,7 @@ export default function TrialCheckoutClient({
       <div className="mx-auto grid min-h-screen max-w-7xl grid-cols-1 lg:h-[100dvh] lg:min-h-0 lg:grid-cols-[1.04fr_.96fr] lg:overflow-hidden">
         <section className="px-4 py-6 sm:px-8 sm:py-8 lg:flex lg:h-[100dvh] lg:min-h-0 lg:items-start lg:overflow-hidden lg:px-12 lg:py-0 xl:px-14">
           <div className="w-full lg:pt-[clamp(20px,5.6vh,50px)]">
-          <Link href="/pricing" className="text-sm font-medium text-[#33d6e2] hover:text-[#4cf0ff] lg:text-xs">
-            Back to pricing
-          </Link>
-
-          <div className="mt-5 max-w-xl lg:mt-4 lg:max-w-[520px]">
+          <div className="max-w-xl lg:max-w-[520px]">
             <h1 className="text-3xl font-extrabold tracking-normal text-white lg:text-[27px] xl:text-[30px]">Subscribing to</h1>
 
             <div className="mt-5 flex items-start justify-between gap-5 border-b border-white/10 pb-4 lg:mt-3 lg:pb-3">
@@ -287,6 +283,9 @@ export default function TrialCheckoutClient({
             <p className="mt-4 text-sm leading-6 text-[#8990a5] lg:mt-3 lg:text-xs lg:leading-5">
               All prices include applicable tax where required. You can cancel from Account/Billing before the trial ends.
             </p>
+            <Link href="/pricing" className="mt-2 inline-flex text-sm font-medium text-[#33d6e2] hover:text-[#4cf0ff] lg:text-xs">
+              Back to pricing
+            </Link>
           </div>
           </div>
         </section>

@@ -57,21 +57,18 @@ export async function POST(req: NextRequest) {
 
     // Check if user already has an active subscription
     const existingPlan = await prismaClient.userPlan.findFirst({
-      where: {
-        userId: user.id,
-        cancelled: 0, // Not cancelled
-        AND: [
-          {
-            OR: [
-              { validUntil: null }, // No expiration date
-              { validUntil: { gt: new Date() } }, // Not expired
-            ],
-          },
-        ],
-      },
+      where: { userId: user.id },
     });
 
-    if (existingPlan) {
+    const isTrialUpgrade =
+      existingPlan?.status === "trialing" || existingPlan?.status === "checkout_pending";
+    const hasActivePaidPlan =
+      existingPlan &&
+      !isTrialUpgrade &&
+      existingPlan.cancelled === 0 &&
+      (!existingPlan.validUntil || existingPlan.validUntil > new Date());
+
+    if (hasActivePaidPlan) {
       return NextResponse.json(
         { error: "User already has an active subscription" },
         { status: HttpStatusCode.Conflict }

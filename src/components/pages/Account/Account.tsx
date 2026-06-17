@@ -322,6 +322,19 @@ export const Account = () => {
       }
     };
 
+    const currentSubscriptionPlan = planData?.SubscriptionPlan;
+    const currentSubscriptionDetails = planData?.SubscriptionDetails;
+    const isTrialing = currentSubscriptionPlan?.status === "trialing";
+    const trialCreditsGranted = Number(currentSubscriptionPlan?.trialCreditsGranted || 5);
+    const trialCreditsUsed = Number(currentSubscriptionPlan?.trialCreditsUsed || 0);
+    const trialCreditsRemaining = Math.max(0, trialCreditsGranted - trialCreditsUsed);
+    const trialEndsAt = currentSubscriptionPlan?.trialEndsAt
+      ? new Date(currentSubscriptionPlan.trialEndsAt)
+      : null;
+    const planPrice = currentSubscriptionDetails
+      ? `${currentSubscriptionDetails.currency === "INR" ? "Rs. " : "$"}${currentSubscriptionDetails.price}`
+      : "";
+
   return (
     <>
       <Flex justifyContent="flex-start" w="100%" minH="100vh">
@@ -377,10 +390,10 @@ export const Account = () => {
                           </div>
                           
                           {/* Renewal date for monthly plans */}
-                          {planData?.SubscriptionPlan && planData?.SubscriptionDetails && (
+                          {currentSubscriptionPlan && currentSubscriptionDetails && (
                             <div className="text-sm text-muted-foreground text-left">
-                              Usage resets on {planData.SubscriptionPlan.validUntil ? 
-                                new Date(planData.SubscriptionPlan.validUntil).toLocaleDateString('en-US', { 
+                              Usage resets on {currentSubscriptionPlan.validUntil ?
+                                new Date(currentSubscriptionPlan.validUntil).toLocaleDateString('en-US', {
                                   month: 'short', 
                                   day: 'numeric', 
                                   year: 'numeric' 
@@ -408,20 +421,49 @@ export const Account = () => {
               </Card>
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg font-medium">Current Plan {planData?.SubscriptionPlan ? '- ' + planData.SubscriptionDetails.name : ''}</CardTitle>  
+                  <CardTitle className="flex items-center gap-2 text-lg font-medium">
+                    Current Plan {currentSubscriptionPlan ? '- ' + (currentSubscriptionDetails?.name || '') : ''}
+                    {isTrialing && (
+                      <span className="rounded-full border border-cyan-300 bg-cyan-50 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-cyan-700">
+                        Trial
+                      </span>
+                    )}
+                  </CardTitle>
                   { planLoading && <Skeleton height="30" width="100%" mt="30px"/>}
                   { !planLoading &&
                   <div>
-                    { planData?.SubscriptionPlan ? (
+                    { currentSubscriptionPlan ? (
                       <>
-                        {planData.SubscriptionPlan.status === "trialing" && (
-                          <div className="mt-4 rounded-lg border border-cyan-300 bg-cyan-50 p-4 text-sm text-slate-700">
-                            Trial active: {Math.max(0, Math.ceil((new Date(planData.SubscriptionPlan.trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} days left. Trial credits: {Math.max(0, Number(planData.SubscriptionPlan.trialCreditsGranted || 5) - Number(planData.SubscriptionPlan.trialCreditsUsed || 0))} / {Number(planData.SubscriptionPlan.trialCreditsGranted || 5)} remaining.
+                        {isTrialing && (
+                          <div className="mt-4 rounded-xl border border-cyan-300 bg-cyan-50 p-4 text-sm text-slate-700">
+                            <div className="mb-3 font-semibold text-cyan-800">
+                              Trial active: {trialEndsAt ? Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : 0} days left
+                            </div>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <div>
+                                <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Trial plan</div>
+                                <div className="font-semibold text-slate-800">{currentSubscriptionDetails?.name}</div>
+                              </div>
+                              <div>
+                                <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Trial credits</div>
+                                <div className="font-semibold text-slate-800">{trialCreditsRemaining} / {trialCreditsGranted} remaining</div>
+                              </div>
+                              <div>
+                                <div className="text-xs font-medium uppercase tracking-wide text-slate-500">First payment</div>
+                                <div className="font-semibold text-slate-800">
+                                  {planPrice} on {trialEndsAt ? trialEndsAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "N/A"}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Billing</div>
+                                <div className="font-semibold text-slate-800">Every month</div>
+                              </div>
+                            </div>
                           </div>
                         )}
-                        {planData.SubscriptionPlan.status === "canceled" && (
+                        {currentSubscriptionPlan.status === "canceled" && (
                           <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-slate-700">
-                            Trial canceled. Access available until {planData.SubscriptionPlan.validUntil ? new Date(planData.SubscriptionPlan.validUntil).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "the end of your current period"}.
+                            Trial canceled. Access available until {currentSubscriptionPlan.validUntil ? new Date(currentSubscriptionPlan.validUntil).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "the end of your current period"}.
                           </div>
                         )}
                         {/* Plan Details and Buttons */}
@@ -432,7 +474,7 @@ export const Account = () => {
                               <div>
                                 <span className="text-slate-500 font-medium">Price:</span>
                                 <span className="ml-2 font-semibold text-slate-500">
-                                  {planData.SubscriptionDetails.price}{planData.SubscriptionDetails.currency === 'INR' ? '₹' : '$'}
+                                  {planPrice}
                                 </span>
                               </div>
                               <div>
@@ -465,11 +507,11 @@ export const Account = () => {
                               </div>
                               <div className="col-span-2">
                                 <span className="text-slate-500 font-medium">
-                                  {planData.SubscriptionPlan.status === "trialing" ? "Your plan starts on:" : "Next bill on:"}
+                                  {isTrialing ? "Your plan starts on:" : "Next bill on:"}
                                 </span>
                                 <span className="ml-2 font-semibold text-slate-500">
-                                  {planData.SubscriptionPlan.validUntil ? 
-                                    new Date(planData.SubscriptionPlan.validUntil).toLocaleDateString('en-US', { 
+                                  {currentSubscriptionPlan.validUntil ?
+                                    new Date(currentSubscriptionPlan.validUntil).toLocaleDateString('en-US', {
                                       month: 'long', 
                                       day: 'numeric', 
                                       year: 'numeric' 
@@ -494,7 +536,7 @@ export const Account = () => {
                               onClick={() => onCancelSubscription()}
                               disabled={isCancellingSubscription}
                             >
-                              {isCancellingSubscription ? "Canceling..." : planData.SubscriptionPlan.status === "trialing" ? "Cancel trial" : "Cancel plan"}
+                              {isCancellingSubscription ? "Canceling..." : isTrialing ? "Cancel trial" : "Cancel plan"}
                             </button>
                             <button
                               className="bg-transparent text-slate-500 border border-slate-300 rounded-lg py-2 px-4 font-semibold cursor-pointer hover:bg-slate-50 transition-colors"

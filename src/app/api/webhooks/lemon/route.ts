@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { prismaClient } from "@/prisma/db";
 import crypto from "crypto";
 import { grantTrialCredits } from "@/libs/credits";
+import { stripeClient } from "@/libs/stripe";
 import { TRIAL_CREDITS, formatPlanPrice } from "@/libs/trial";
 import { sendCancellationEmail, sendPaymentFailedEmail, sendSubscriptionStartedEmail, sendTrialStartEmail } from "@/libs/billing-emails";
 
@@ -178,11 +179,15 @@ export async function POST(req: NextRequest): Promise<Response> {
 
         // Find the subscription plan based on variant ID (you may need to add a field to map variant_id to plan)
         // For now, we'll look up by product_id or create a mapping
-        const subscriptionPlan = await prismaClient.subscriptionPlan.findFirst({
-          where: {
-            productId: subscription.attributes.product_id.toString(),
-          },
-        });
+        const subscriptionPlan = event.meta.custom_data?.plan_id
+          ? await prismaClient.subscriptionPlan.findUnique({
+              where: { id: Number(event.meta.custom_data.plan_id) },
+            })
+          : await prismaClient.subscriptionPlan.findFirst({
+              where: {
+                productId: subscription.attributes.product_id.toString(),
+              },
+            });
 
         // Create or update user plan
         // Note: You need to add these fields to your UserPlan model:
@@ -196,12 +201,16 @@ export async function POST(req: NextRequest): Promise<Response> {
           ? new Date(subscription.attributes.trial_ends_at)
           : null;
         const currentPeriodEnd = new Date(subscription.attributes.renews_at);
+        const previousUserPlan = await prismaClient.userPlan.findUnique({
+          where: { userId: user.id },
+        });
 
         await prismaClient.userPlan.upsert({
           where: {
             userId: user.id,
           },
           update: {
+             planId: subscriptionPlan?.id || null,
              provider: "lemon-squeezy",
              lemonSubscriptionId: subscription.id,
              lemonVariantId: subscription.attributes.variant_id.toString(),
@@ -267,6 +276,37 @@ export async function POST(req: NextRequest): Promise<Response> {
             });
           }
         } else {
+          if (
+            previousUserPlan?.status === "trialing" &&
+            previousUserPlan.lemonSubscriptionId &&
+            previousUserPlan.lemonSubscriptionId !== subscription.id
+          ) {
+            const apiKey = process.env.LEMONSQUEEZY_API_KEY;
+            if (apiKey) {
+              await fetch(
+                `https://api.lemonsqueezy.com/v1/subscriptions/${previousUserPlan.lemonSubscriptionId}`,
+                {
+                  method: "DELETE",
+                  headers: {
+                    Accept: "application/vnd.api+json",
+                    "Content-Type": "application/vnd.api+json",
+                    Authorization: `Bearer ${apiKey}`,
+                  },
+                }
+              ).catch((error) => {
+                console.error("Unable to cancel superseded Lemon trial:", error);
+              });
+            }
+          }
+          if (
+            previousUserPlan?.status === "trialing" &&
+            previousUserPlan.stripeSubscriptionId
+          ) {
+            await stripeClient.subscriptions.cancel(previousUserPlan.stripeSubscriptionId).catch((error) => {
+              console.error("Unable to cancel superseded Stripe trial:", error);
+            });
+          }
+
           // Update user balances
           await prismaClient.user.update({
             where: {

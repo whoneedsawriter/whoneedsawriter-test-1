@@ -10,6 +10,7 @@ export interface UserPlanStatusResponse {
   validUntil?: string;
   status?: string;
   hasUsablePlan: boolean;
+  badgeLabel?: string;
 }
 
 export async function GET(req: NextRequest) {
@@ -47,15 +48,21 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // If UserPlan exists and has planId, fetch from SubscriptionPlan table
+    const isFutureDate = (value?: Date | null) =>
+      Boolean(value && value.getTime() > Date.now());
+
     const hasUsablePlan =
-      !!userPlan &&
-      !!userPlan.planId &&
-      userPlan.cancelled === 0 &&
+      !!userPlan?.planId &&
       userPlan.status !== "checkout_pending" &&
       userPlan.status !== "expired" &&
       userPlan.status !== "past_due" &&
-      (!userPlan.validUntil || userPlan.validUntil > new Date());
+      (
+        userPlan.status === "trialing"
+          ? isFutureDate(userPlan.trialEndsAt)
+          : userPlan.status === "canceled"
+            ? isFutureDate(userPlan.validUntil)
+            : !userPlan.validUntil || isFutureDate(userPlan.validUntil)
+      );
 
     if (hasUsablePlan && userPlan?.planId) {
       const subscriptionPlan = await prismaClient.subscriptionPlan.findFirst({
@@ -86,6 +93,11 @@ export async function GET(req: NextRequest) {
       validUntil,
       status: userPlan?.status || undefined,
       hasUsablePlan,
+      badgeLabel: hasUsablePlan
+        ? userPlan?.status === "trialing"
+          ? "Trial"
+          : planName
+        : undefined,
     };
 
     return NextResponse.json(response, { status: HttpStatusCode.Ok });

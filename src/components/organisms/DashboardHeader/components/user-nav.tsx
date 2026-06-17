@@ -26,7 +26,7 @@ export function UserNav() {
 
   const [showNewWorkspaceDialog, setShowNewWorkspaceDialog] = useState(false);
 
-  const { hasPlan } = useUserPlanStatus();
+  const { badgeLabel } = useUserPlanStatus();
 
   return (
     <>
@@ -39,10 +39,9 @@ export function UserNav() {
                 <TbUser className="h-4 w-4 text-[#60a5fa]"/>
               </AvatarFallback>
             </Avatar>
-            {/* PRO Badge */}
-            {hasPlan && (
+            {badgeLabel && (
               <span className="absolute -top-2 -right-1 bg-gradient-to-r from-[#4da3ff] to-[#8b5cf6] text-white text-[9px] font-semibold px-1.5 py-1 rounded leading-none">
-                PRO
+                {badgeLabel}
               </span>
             )}
           </Button>

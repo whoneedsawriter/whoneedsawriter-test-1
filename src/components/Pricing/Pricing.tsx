@@ -262,6 +262,12 @@ fetch(geoUrl, {
         const currentUserPlan = planData?.SubscriptionPlan;
         const isSamePlan = currentUserPlan?.planId === plan.id;
         const isPendingTrialSetup = isSamePlan && currentUserPlan?.status === "checkout_pending";
+        const isTrialing = currentUserPlan?.status === "trialing";
+        const isCurrentPlan = isSamePlan && !isPendingTrialSetup && !isTrialing;
+        const shouldUsePaidCheckout =
+          isLogged &&
+          Boolean(currentUserPlan?.status) &&
+          currentUserPlan?.status !== "checkout_pending";
 
         return (
         <div 
@@ -325,12 +331,22 @@ fetch(geoUrl, {
             </div>
           </div>
 
-          {isSamePlan && !isPendingTrialSetup ? (
+          {isCurrentPlan ? (
             <button
               disabled
               className="mt-6 w-full py-3 rounded-xl bg-[#33d6e2] text-[#0b1120] font-semibold text-sm cursor-not-allowed opacity-50"
             >
               Current Plan
+            </button>
+          ) : shouldUsePaidCheckout ? (
+            <button
+              onClick={() => payStripeSubscription(plan.priceId, plan.name)}
+              disabled={processingPlan === plan.priceId}
+              className={`mt-6 w-full py-3 rounded-xl bg-[#33d6e2] text-[#0b1120] font-semibold text-sm hover:bg-[#4cf0ff] transition ${
+                processingPlan === plan.priceId ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+              }`}
+            >
+              {processingPlan === plan.priceId ? 'Processing Payment...' : 'Upgrade Now'}
             </button>
           ) : (
             <a

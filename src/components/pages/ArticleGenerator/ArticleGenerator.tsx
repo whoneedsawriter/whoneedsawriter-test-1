@@ -48,13 +48,20 @@ import { TourGuide, useTourStatus, articleGeneratorTourSteps, articleGeneratorGo
 import DashboardHeader from "@/components/organisms/DashboardHeader/DashboardHeader"; 
 import { UserContext, UserContextType } from "@/app/customProviders/UserProvider";
 import { PricingPopupContext } from "@/app/PricingPopupProvider";
-import { GENERATION_ACCESS_REQUIRED_MESSAGE, hasGenerationAccess } from "@/libs/generation-access";
+import {
+  GENERATION_ACCESS_REQUIRED_MESSAGE,
+  TRIAL_ENDED_UPGRADE_MESSAGE,
+  hasGenerationAccess,
+  isTrialCreditsExhausted,
+} from "@/libs/generation-access";
 
 type AccountPlanResponse = {
   SubscriptionPlan?: {
     status?: string | null;
     validUntil?: string | Date | null;
     trialEndsAt?: string | Date | null;
+    trialCreditsGranted?: number | null;
+    trialCreditsUsed?: number | null;
     planId?: number | null;
   } | null;
   SubscriptionDetails?: {
@@ -184,6 +191,7 @@ const ArticleGenerator: React.FC = () => {
     lifetimeBalance: user?.lifetimeBalance,
     UserPlan: accountData?.SubscriptionPlan,
   });
+  const trialEnded = isTrialCreditsExhausted(accountData?.SubscriptionPlan);
   const [showTrialRequiredDialog, setShowTrialRequiredDialog] = useState(false);
 
   useEffect(() => {
@@ -287,7 +295,7 @@ const ArticleGenerator: React.FC = () => {
     },
     onError: (error) => {
       const requestError = error as Error & { code?: string; status?: number };
-      if (requestError.code === "TRIAL_REQUIRED" || requestError.status === 403) {
+      if (requestError.code === "TRIAL_REQUIRED" || requestError.code === "TRIAL_ENDED" || requestError.status === 403) {
         setShowTrialRequiredDialog(true);
         return;
       }
@@ -343,7 +351,7 @@ const ArticleGenerator: React.FC = () => {
 
       if (!response.ok) {
         const errorPayload = await response.json().catch(() => ({}));
-        if (errorPayload.code === "TRIAL_REQUIRED" || response.status === 403) {
+        if (errorPayload.code === "TRIAL_REQUIRED" || errorPayload.code === "TRIAL_ENDED" || response.status === 403) {
           setShowTrialRequiredDialog(true);
           return;
         }
@@ -452,7 +460,7 @@ const ArticleGenerator: React.FC = () => {
 
       if (!response.ok) {
         const errorPayload = await response.json().catch(() => ({}));
-        if (errorPayload.code === "TRIAL_REQUIRED" || response.status === 403) {
+        if (errorPayload.code === "TRIAL_REQUIRED" || errorPayload.code === "TRIAL_ENDED" || response.status === 403) {
           setShowTrialRequiredDialog(true);
           return;
         }
@@ -1475,6 +1483,8 @@ seo content writing tips`}
           isOpen={showTrialRequiredDialog}
           onClose={() => setShowTrialRequiredDialog(false)}
           router={router}
+          trialEnded={trialEnded}
+          onPricingPopupOpen={onPricingPopupOpen}
         />
       )}
 
@@ -1759,14 +1769,28 @@ const TrialRequiredDialog = ({
   isOpen,
   onClose,
   router,
+  trialEnded,
+  onPricingPopupOpen,
 }: {
   isOpen: boolean;
   onClose: () => void;
   router: ReturnType<typeof useRouter>;
+  trialEnded: boolean;
+  onPricingPopupOpen: () => void;
 }) => {
   const [isStartingTrial, setIsStartingTrial] = useState(false);
 
+  const openUpgradePlans = () => {
+    onPricingPopupOpen();
+    onClose();
+  };
+
   const startTrial = async () => {
+    if (trialEnded) {
+      openUpgradePlans();
+      return;
+    }
+
     setIsStartingTrial(true);
     try {
       const starterPlanId = await resolveStarterTrialPlanId();
@@ -1785,16 +1809,30 @@ const TrialRequiredDialog = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[560px] bg-[#1b2232] border border-[#ffffff14]">
         <DialogHeader>
-          <DialogTitle className="text-white mb-2">Start a trial to generate articles</DialogTitle>
+          <DialogTitle className="text-white mb-2">
+            {trialEnded ? "Your trial has ended" : "Start a trial to generate articles"}
+          </DialogTitle>
           <DialogDescription className="text-[#a9b1c3]">
-            {GENERATION_ACCESS_REQUIRED_MESSAGE} Your 7-day trial includes 5 credits, lets you test the AI blog post generator, and keeps your article history available in the dashboard.
+            {trialEnded
+              ? TRIAL_ENDED_UPGRADE_MESSAGE
+              : `${GENERATION_ACCESS_REQUIRED_MESSAGE} Your 7-day trial includes 5 credits, lets you test the AI blog post generator, and keeps your article history available in the dashboard.`}
           </DialogDescription>
         </DialogHeader>
         <div className="rounded-xl border border-[#ffffff14] bg-[#0e1322] p-4 text-sm text-[#cbd5f5]">
           <ul className="list-disc pl-5 space-y-2">
-            <li>Choose Lite, Core, or Pro based on the article depth you need.</li>
-            <li>Generate research-backed drafts, SEO sections, and publishing assets.</li>
-            <li>Cancel before the trial ends if the plan is not right for you.</li>
+            {trialEnded ? (
+              <>
+                <li>Choose any monthly plan to continue generating articles.</li>
+                <li>Your article history remains available in the dashboard.</li>
+                <li>Paid plan credits are added after checkout succeeds.</li>
+              </>
+            ) : (
+              <>
+                <li>Choose Lite, Core, or Pro based on the article depth you need.</li>
+                <li>Generate research-backed drafts, SEO sections, and publishing assets.</li>
+                <li>Cancel before the trial ends if the plan is not right for you.</li>
+              </>
+            )}
           </ul>
         </div>
         <DialogFooter className="text-white">
@@ -1814,7 +1852,7 @@ const TrialRequiredDialog = ({
             isLoading={isStartingTrial}
             loadingText="Starting..."
           >
-            Start Trial
+            {trialEnded ? "Upgrade plan" : "Start Trial"}
           </Button>
         </DialogFooter>
       </DialogContent>

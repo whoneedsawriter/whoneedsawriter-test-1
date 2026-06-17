@@ -243,7 +243,8 @@ import { useQuery } from "@tanstack/react-query";
                   const currentUserPlan = planData?.SubscriptionPlan;
                   const isSamePlan = currentUserPlan?.planId === plan.id;
                   const isPendingTrialSetup = isSamePlan && currentUserPlan?.status === "checkout_pending";
-                  const isCurrentPlan = isSamePlan && !isPendingTrialSetup;
+                  const isTrialing = currentUserPlan?.status === "trialing";
+                  const isCurrentPlan = isSamePlan && !isPendingTrialSetup && !isTrialing;
                   const isProcessing = processingPlan === plan.priceId;
 
                   return (
