@@ -284,14 +284,14 @@ export default function TrialCheckoutClient({
               All prices include applicable tax where required. You can cancel from Account/Billing before the trial ends.
             </p>
             <Link href="/pricing" className="mt-2 inline-flex text-sm font-medium text-[#33d6e2] hover:text-[#4cf0ff] lg:text-xs">
-              Back to pricing
+              See all plans
             </Link>
           </div>
           </div>
         </section>
 
-        <section className="hidden border-t border-white/10 bg-[#101925] px-4 py-8 sm:px-8 lg:flex lg:h-[100dvh] lg:min-h-0 lg:items-start lg:overflow-hidden lg:border-l lg:border-t-0 lg:px-12 lg:py-0 xl:px-14">
-          <div className="mx-auto max-w-xl lg:pt-[clamp(76px,20vh,160px)]">
+        <section className="hidden border-t border-white/10 bg-[#101925] px-4 py-8 sm:px-8 lg:flex lg:h-[100dvh] lg:min-h-0 lg:items-center lg:overflow-hidden lg:border-l lg:border-t-0 lg:px-12 lg:py-0 xl:px-14">
+          <div className="mx-auto max-w-xl">
             <h2 className="text-2xl font-extrabold text-white sm:text-3xl lg:text-[29px]">How your free trial works</h2>
 
             <div className="mt-6 space-y-0 lg:mt-6">
