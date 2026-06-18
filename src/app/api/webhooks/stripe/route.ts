@@ -516,6 +516,18 @@ switch (stripeProductId) {
         currentStripeUserPlan?.status === "checkout_pending" &&
         subscription.status === "trialing" &&
         !subscription.default_payment_method;
+      let updatedPaymentMethodFingerprint: string | null = null;
+
+      if (subscription.status === "trialing" && subscription.default_payment_method) {
+        try {
+          const paymentMethod = await stripeClient.paymentMethods.retrieve(
+            subscription.default_payment_method as string
+          );
+          updatedPaymentMethodFingerprint = paymentMethod.card?.fingerprint || null;
+        } catch (error) {
+          console.error("Unable to fetch Stripe payment method fingerprint:", error);
+        }
+      }
 
       await prismaClient.userPlan.updateMany({
         where: {
@@ -529,6 +541,49 @@ switch (stripeProductId) {
           cancelled: subscription.cancel_at_period_end ? 1 : 0,
         },
       });
+
+      if (
+        currentStripeUserPlan &&
+        subscription.status === "trialing" &&
+        !shouldKeepCheckoutPending
+      ) {
+        await prismaClient.userPlan.update({
+          where: { userId: currentStripeUserPlan.userId },
+          data: {
+            trialStartedAt: subscription.trial_start
+              ? new Date(subscription.trial_start * 1000)
+              : currentStripeUserPlan.trialStartedAt,
+            trialEndsAt: subscription.trial_end
+              ? new Date(subscription.trial_end * 1000)
+              : currentStripeUserPlan.trialEndsAt,
+            trialCreditsGranted: TRIAL_CREDITS,
+            trialCreditsUsed:
+              Number(currentStripeUserPlan.trialCreditsGranted || 0) > 0
+                ? undefined
+                : 0,
+            paymentMethodFingerprint: updatedPaymentMethodFingerprint,
+            billingTermsAcceptedAt: currentStripeUserPlan.billingTermsAcceptedAt || new Date(),
+          },
+        });
+        await grantTrialCredits(user.id, `trial_credit_grant:${user.id}:${subscription.id}`);
+        if (user.email) {
+          await prismaClient.trialUsage.upsert({
+            where: { email: user.email.toLowerCase() },
+            update: {
+              paymentMethodFingerprint: updatedPaymentMethodFingerprint,
+              provider: "stripe",
+              subscriptionId: subscription.id,
+            },
+            create: {
+              userId: user.id,
+              email: user.email.toLowerCase(),
+              paymentMethodFingerprint: updatedPaymentMethodFingerprint,
+              provider: "stripe",
+              subscriptionId: subscription.id,
+            },
+          });
+        }
+      }
 
       break;
 
@@ -570,6 +625,18 @@ switch (stripeProductId) {
       if (_subscription.status === "trialing") {
         const keepPendingUntilSetupSucceeds =
           userPlan.status === "checkout_pending" && !_subscription.default_payment_method;
+        let invoicePaymentMethodFingerprint: string | null = null;
+
+        if (_subscription.default_payment_method) {
+          try {
+            const paymentMethod = await stripeClient.paymentMethods.retrieve(
+              _subscription.default_payment_method as string
+            );
+            invoicePaymentMethodFingerprint = paymentMethod.card?.fingerprint || null;
+          } catch (error) {
+            console.error("Unable to fetch Stripe payment method fingerprint:", error);
+          }
+        }
 
         await prismaClient.userPlan.update({
           where: {
@@ -579,8 +646,41 @@ switch (stripeProductId) {
             status: keepPendingUntilSetupSucceeds ? "checkout_pending" : "trialing",
             validUntil: new Date(_subscription.current_period_end * 1000),
             currentPeriodEnd: new Date(_subscription.current_period_end * 1000),
+            trialStartedAt: _subscription.trial_start
+              ? new Date(_subscription.trial_start * 1000)
+              : userPlan.trialStartedAt,
+            trialEndsAt: _subscription.trial_end
+              ? new Date(_subscription.trial_end * 1000)
+              : userPlan.trialEndsAt,
+            trialCreditsGranted: keepPendingUntilSetupSucceeds ? 0 : TRIAL_CREDITS,
+            trialCreditsUsed:
+              keepPendingUntilSetupSucceeds || Number(userPlan.trialCreditsGranted || 0) > 0
+                ? undefined
+                : 0,
+            paymentMethodFingerprint: invoicePaymentMethodFingerprint,
+            billingTermsAcceptedAt: userPlan.billingTermsAcceptedAt || new Date(),
           },
         });
+        if (!keepPendingUntilSetupSucceeds) {
+          await grantTrialCredits(renewalUser.id, `trial_credit_grant:${renewalUser.id}:${_subscription.id}`);
+          if (renewalUser.email) {
+            await prismaClient.trialUsage.upsert({
+              where: { email: renewalUser.email.toLowerCase() },
+              update: {
+                paymentMethodFingerprint: invoicePaymentMethodFingerprint,
+                provider: "stripe",
+                subscriptionId: _subscription.id,
+              },
+              create: {
+                userId: renewalUser.id,
+                email: renewalUser.email.toLowerCase(),
+                paymentMethodFingerprint: invoicePaymentMethodFingerprint,
+                provider: "stripe",
+                subscriptionId: _subscription.id,
+              },
+            });
+          }
+        }
         break;
       }
 
