@@ -149,10 +149,10 @@ export const Dashboard = () => {
             </div>
 
             {userPlan?.status === "trialing" && (
-              <Card className="border-cyan-300/40 bg-cyan-50/60">
+              <Card className="border-cyan-400/30 bg-[#07111f] shadow-[0_0_0_1px_rgba(34,211,238,0.08),0_18px_50px_rgba(0,0,0,0.28)]">
                 <CardHeader>
                   <CardTitle>Trial active: {trialDaysLeft} days left</CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-slate-300">
                     Trial credits: {trialCreditsRemaining} / {trialCreditsGranted} remaining. Your {subscriptionDetails?.name || "selected"} plan starts on {trialEndsAt?.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.
                   </CardDescription>
                 </CardHeader>
