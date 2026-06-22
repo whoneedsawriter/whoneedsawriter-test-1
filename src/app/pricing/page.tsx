@@ -3,6 +3,7 @@ import { Header } from "@/components/Header/Header";
 import { Pricing } from "@/components/Pricing/Pricing";
 import { PricingPlugin } from "@/components/PricingPlugin/Pricing";
 import { brandName } from "@/config";
+import { verifyPluginBillingToken } from "@/libs/plugin-billing-auth";
 
 export const metadata = {
     title: `Pricing | ${brandName}`,
@@ -20,23 +21,23 @@ function normalizeSearchParam(
   return value[0] ?? "";
 }
 
-export default function PricingPage({
+export default async function PricingPage({
   searchParams,
 }: {
-  searchParams: { userId?: string | string[]; website?: string | string[] };
+  searchParams: { userId?: string | string[]; website?: string | string[]; token?: string | string[] };
 }) {
-  const userId = normalizeSearchParam(searchParams.userId).trim();
-  const website = normalizeSearchParam(searchParams.website).trim();
-  const usePlugin = userId.length > 0;
+  const token = normalizeSearchParam(searchParams.token).trim();
+  const pluginBilling = token ? await verifyPluginBillingToken(token, ["pricing"]) : null;
 
   return (
     <>
       <Header />
       <main className="">
-        {usePlugin ? (
+        {pluginBilling ? (
           <PricingPlugin
-            userId={userId}
-            {...(website ? { website } : {})}
+            userId={pluginBilling.userId}
+            website={pluginBilling.website}
+            billingToken={token}
           />
         ) : (
           <Pricing />

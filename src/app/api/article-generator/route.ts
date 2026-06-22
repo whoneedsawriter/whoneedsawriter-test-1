@@ -4,7 +4,6 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/config/auth";
 import { OpenAI } from "openai";
 import { refundSpentCredits, spendCredits } from "@/libs/credits";
-import { isTrialActive } from "@/libs/trial";
 import {
   GENERATION_ACCESS_REQUIRED_MESSAGE,
   TRIAL_ENDED_UPGRADE_MESSAGE,
@@ -149,25 +148,6 @@ export async function POST(request: Request) {
         const creditCostPerArticle = getCreditCost(model || '1a-pro');
         const totalCreditCost = parseFloat((keywords.length * creditCostPerArticle).toFixed(1));
         const spendKey = `generation_spend:${userId}:${batchId}`;
-        const userPlan = await prismaClient.userPlan.findUnique({ where: { userId } });
-
-        if (isTrialActive(userPlan)) {
-          const activeTrialGeneration = await prismaClient.godmodeArticles.count({
-            where: {
-              userId,
-              status: 0,
-              requestProcess: { in: [0, 1] },
-            },
-          });
-
-          if (activeTrialGeneration > 0) {
-            return NextResponse.json(
-              { error: "Trial users can run 1 generation at a time." },
-              { status: 429 }
-            );
-          }
-        }
-
         await spendCredits({
           userId,
           amount: totalCreditCost,

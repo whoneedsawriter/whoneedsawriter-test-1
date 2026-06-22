@@ -2,6 +2,7 @@ import { prismaClient } from "@/prisma/db";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/config/auth";
+import { getPluginGenerationAccessFailure } from "@/libs/plugin-account-access";
 
 /** e.g. May 09, 2026 at 10:30 AM (server local time) */
 function formatPluginBatchCreatedAt(d: Date): string {
@@ -115,9 +116,20 @@ export async function GET(req: NextRequest) {
 export async function POST(request: Request) {
   const { articleType, total_keywords, userId, websiteToPublish, saveOption, scheduleTime, publishedStartDateTime } =
     await request.json();
-    console.log(publishedStartDateTime);
 
   try {
+    if (!userId || typeof userId !== "string") {
+      return NextResponse.json({ error: "User ID is required" }, { status: 401 });
+    }
+
+    const accessFailure = await getPluginGenerationAccessFailure(userId);
+    if (accessFailure) {
+      return NextResponse.json(
+        { error: accessFailure.error, code: accessFailure.code },
+        { status: accessFailure.status }
+      );
+    }
+
     const finalBatchName = await generateUniquePluginBatchName();
 
     const batch_created = await prismaClient.batch.create({
@@ -140,7 +152,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       status: 200,
-      assignedBatch: batch_created.id
+      assignedBatch: batch_created.id,
+      batchName: batch_created.name,
     });
   } catch (error) {
     console.error("Error creating batch:", error);

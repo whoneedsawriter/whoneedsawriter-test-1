@@ -9,9 +9,10 @@ export type PricingPluginProps = {
   userId: string;
   /** Hostname from the plugin install / pricing link (e.g. example.com). */
   website?: string;
+  billingToken: string;
 };
 
-export const PricingPlugin = ({ userId, website }: PricingPluginProps) => {
+export const PricingPlugin = ({ userId, website, billingToken }: PricingPluginProps) => {
   //console.log(userId);
   //console.log(website);
   const { data: productData, isLoading: isLoadingPrice, error: errorPrice } = useQuery({
@@ -35,7 +36,7 @@ export const PricingPlugin = ({ userId, website }: PricingPluginProps) => {
     //  console.log(productData);
       // Early return if productData is not available yet
       if (!productData) return;
-      
+
 
 const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
 const geoUrl = `https://www.googleapis.com/geolocation/v1/geolocate?key=${apiKey}`;
@@ -58,10 +59,10 @@ fetch(geoUrl, {
 .then(response => response.json())
 .then(data => {
   const { lat, lng } = data.location;
-  
+
   const geocodeApiKey = apiKey;
   const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${geocodeApiKey}`;
-  
+
   return fetch(geocodeUrl);
 })
 .then(response => response.json())
@@ -71,7 +72,7 @@ fetch(geoUrl, {
   if (country) {
   //  console.log('Country Name:', country.long_name);
    // console.log('Country Code:', country.short_name);
-   setCountryName(country.long_name); 
+   setCountryName(country.long_name);
    if(country.long_name === 'India'){
   //  console.log('Country Name:', country_name);
     setFilteredPlansSubscription(productData.subscriptionPlans.filter((plan: { currency: string; }) => plan.currency === 'INR'));
@@ -101,29 +102,29 @@ fetch(geoUrl, {
     } = useQuery({
       queryKey: ["plans"],
       queryFn: async () => {
-        const response = await fetch(`/api/article-generator/plugin/user?id=${userId}`);
+        const response = await fetch(`/api/article-generator/plugin/user?token=${encodeURIComponent(billingToken)}`);
         if (!response.ok) {
           throw new Error("Network response was not ok");
         }
         return response.json();
       },
   });
-  
+
   //console.log(planData);
 
     const [activeTab, setActiveTab] = useState<string>("monthly")
     const [processingPlan, setProcessingPlan] = useState<string | null>(null);
 
-    const payStripeSubscription = async (priceId: string, name: string) => {      
+    const payStripeSubscription = async (priceId: string, name: string) => {
       setProcessingPlan(priceId);
       if(countryName === 'India'){
         try {
           const response = await fetch("/api/subscriptions/plugin/stripe", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ priceId, name, userId, website }), 
+            body: JSON.stringify({ priceId, name, billingToken }),
           });
-    
+
           if (!response.ok) throw new Error(`Error: ${response.status}`);
           const { url } = await response.json();
           window.location.href = url;
@@ -136,9 +137,9 @@ fetch(geoUrl, {
           const response = await fetch("/api/subscriptions/plugin/lemon-squeezy", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ variantId: priceId, name, userId, website }), 
+            body: JSON.stringify({ variantId: priceId, name, billingToken }),
           });
-    
+
           if (!response.ok) throw new Error(`Error: ${response.status}`);
           const { checkoutUrl } = await response.json();
           window.location.href = checkoutUrl;
@@ -148,19 +149,19 @@ fetch(geoUrl, {
         }
       }
 
-    }; 
-  
+    };
+
     const payStripeLifetime = async (priceId: string, name: string) => {
-      
+
       setProcessingPlan(priceId);
       if(countryName === 'India'){
         try {
           const response = await fetch("/api/lifetimePurchase/plugin", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId, priceId, name, website }), 
+            body: JSON.stringify({ priceId, name, billingToken }),
           });
-    
+
           if (!response.ok) throw new Error(`Error: ${response.status}`);
           const { url } = await response.json();
           window.location.href = url;
@@ -173,9 +174,9 @@ fetch(geoUrl, {
           const response = await fetch("/api/lifetime-purchase/lemon-squeezy/plugin", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId, variantId: priceId, name, website }), 
+            body: JSON.stringify({ variantId: priceId, name, billingToken }),
           });
-    
+
           if (!response.ok) throw new Error(`Error: ${response.status}`);
           const { checkoutUrl, checkoutId } = await response.json();
           window.location.href = checkoutUrl;
@@ -204,7 +205,7 @@ fetch(geoUrl, {
         </Heading>
 
       </Section>
-      {isLoadingPrice && 
+      {isLoadingPrice &&
       <Text my="5px" textAlign="center">
         Loading plans...
       </Text>
@@ -221,7 +222,7 @@ fetch(geoUrl, {
       </p>
                   {/* Body */}
                   <div className="px-8 pb-8 pt-6 text-white">
-                    
+
 
                     {/* Pricing Cards */}
                     <div className="grid gap-6 md:grid-cols-3 mt-2">
@@ -232,7 +233,7 @@ fetch(geoUrl, {
         const creditsMatch = featuresArray[0]?.match(/^(\d+|Unlimited)\s/);
         const credits = creditsMatch ? creditsMatch[1] : '0';
         const approximateArticles = credits === 'Unlimited' ? 'Unlimited' : `~${credits}`;
-        
+
         // Get plan description
         const getPlanDescription = (name: string) => {
           if (name === 'Pro') return 'For individuals & light users';
@@ -242,11 +243,11 @@ fetch(geoUrl, {
         };
 
         return (
-        <div 
-          key={plan.id} 
+        <div
+          key={plan.id}
           className={`rounded-2xl border ${
-            plan.name === 'Premium' 
-              ? 'border-[#33d6e2] shadow-[0_0_30px_rgba(51,214,226,0.25)]' 
+            plan.name === 'Premium'
+              ? 'border-[#33d6e2] shadow-[0_0_30px_rgba(51,214,226,0.25)]'
               : 'border-[#1f2937]'
           } bg-[#0b1120] px-6 py-6 relative`}
         >
@@ -257,7 +258,7 @@ fetch(geoUrl, {
               </span>
             </div>
           }
-          
+
           <h3 className={`text-lg font-semibold ${plan.name === 'Premium' ? 'mt-2' : ''}`}>{plan.name}</h3>
 
           {/* PRICE + CREDITS CARD */}
@@ -265,7 +266,7 @@ fetch(geoUrl, {
             <div>
               <p className="text-[10px] uppercase tracking-wide text-[#8990a5]">Price</p>
               <p className="text-sm font-semibold text-white">
-                {plan.currency === 'INR' ? '₹' : '$'}{plan.price} 
+                {plan.currency === 'INR' ? '₹' : '$'}{plan.price}
                 <span className="text-[11px] text-[#8990a5]">/month</span>
               </p>
             </div>
@@ -303,19 +304,19 @@ fetch(geoUrl, {
             </div>
           </div>
 
-          <button 
-            onClick={() => payStripeSubscription(plan.priceId, plan.name)} 
+          <button
+            onClick={() => payStripeSubscription(plan.priceId, plan.name)}
             disabled={processingPlan === plan.priceId || (planData?.SubscriptionPlan && planData.SubscriptionPlan.planId === plan.id)}
             className={`mt-6 w-full py-3 rounded-xl bg-[#33d6e2] text-[#0b1120] font-semibold text-sm hover:bg-[#4cf0ff] transition ${
               (processingPlan === plan.priceId || (planData?.SubscriptionPlan && planData.SubscriptionPlan.planId === plan.id))
-                ? 'cursor-not-allowed opacity-50' 
+                ? 'cursor-not-allowed opacity-50'
                 : 'cursor-pointer'
             }`}
           >
             { planData?.SubscriptionPlan && planData.SubscriptionPlan.planId === plan.id
-              ? 'Current Plan' 
-              : processingPlan === plan.priceId 
-                ? 'Processing Payment...' 
+              ? 'Current Plan'
+              : processingPlan === plan.priceId
+                ? 'Processing Payment...'
                 : 'Upgrade Now'
             }
           </button>
@@ -410,7 +411,7 @@ fetch(geoUrl, {
         const creditsMatch = featuresArray[0]?.match(/^(\d+|Unlimited)\s/);
         const credits = creditsMatch ? creditsMatch[1] : '0';
         const approximateArticles = credits === 'Unlimited' ? 'Unlimited' : `~${credits}`;
-        
+
         // Get plan description
         const getPlanDescription = (name: string) => {
           if (name === 'Pro') return 'For individuals & light users';
@@ -420,11 +421,11 @@ fetch(geoUrl, {
         };
 
         return (
-        <div 
-          key={plan.id} 
+        <div
+          key={plan.id}
           className={`rounded-2xl border ${
-            plan.name === 'Premium' 
-              ? 'border-[#33d6e2] shadow-[0_0_30px_rgba(51,214,226,0.25)]' 
+            plan.name === 'Premium'
+              ? 'border-[#33d6e2] shadow-[0_0_30px_rgba(51,214,226,0.25)]'
               : 'border-[#1f2937]'
           } bg-[#0b1120] px-6 py-6 relative`}
         >
@@ -435,7 +436,7 @@ fetch(geoUrl, {
               </span>
             </div>
           }
-          
+
           <h3 className={`text-lg font-semibold ${plan.name === 'Premium' ? 'mt-2' : ''}`}>{plan.name}</h3>
 
           {/* PRICE + CREDITS CARD */}
@@ -480,12 +481,12 @@ fetch(geoUrl, {
             </div>
           </div>
 
-          <button 
-            onClick={() => payStripeLifetime(plan.priceId, plan.name)} 
+          <button
+            onClick={() => payStripeLifetime(plan.priceId, plan.name)}
             disabled={processingPlan === plan.priceId || (planData?.LifetimePlan && planData.LifetimePlan.planId === plan.id)}
             className={`mt-6 w-full py-3 rounded-xl bg-[#33d6e2] text-[#0b1120] font-semibold text-sm hover:bg-[#4cf0ff] transition ${
               (processingPlan === plan.priceId || (planData?.LifetimePlan && planData.LifetimePlan.planId === plan.id))
-                ? 'cursor-not-allowed opacity-50' 
+                ? 'cursor-not-allowed opacity-50'
                 : 'cursor-pointer'
             }`}
           >

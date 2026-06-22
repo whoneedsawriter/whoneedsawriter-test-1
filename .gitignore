@@ -34,3 +34,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local plugin packaging/test artifacts
+*.zip
+.plugin-*/
+.tmp-wp-*.php
+.wp-stub/

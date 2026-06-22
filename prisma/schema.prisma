@@ -164,6 +164,19 @@ model TrialUsage {
   @@index([userId])
 }
 
+model PluginSite {
+  id             String   @id @default(cuid())
+  userId         String
+  website        String
+  siteSecretHash String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  lastSeenAt     DateTime @default(now())
+
+  @@unique([userId, website])
+  @@index([userId])
+}
+
 model UserOnboarding {
   id                           String   @id @default(cuid())
   userId                       String

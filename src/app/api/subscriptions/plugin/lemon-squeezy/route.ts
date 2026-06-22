@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { HttpStatusCode } from "axios";
 import { prismaClient } from "@/prisma/db";
+import { verifyPluginBillingToken } from "@/libs/plugin-billing-auth";
+import { buildPluginBillingReturnUrl } from "@/libs/plugin-return-url";
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, variantId, name, website } = await req.json();
+    const { variantId, name, billingToken } = await req.json();
 
-    // Check if user is authenticated
-    if (!userId) {
+    const pluginBilling = await verifyPluginBillingToken(String(billingToken || ""), ["pricing"]);
+    if (!pluginBilling) {
       return NextResponse.json(
-        { error: "Unauthorized" },
+        { error: "Invalid or expired plugin billing token." },
         { status: HttpStatusCode.Unauthorized }
       );
     }
@@ -22,19 +24,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get user from database
-    const user = await prismaClient.user.findFirst({
-      where: {
-        id: userId,
-      },
-    });
-
-    if (!user) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: HttpStatusCode.NotFound }
-      );
-    }
+    const user = pluginBilling.user;
 
     // Check if user already has an active subscription
     const existingPlan = await prismaClient.userPlan.findFirst({
@@ -59,6 +49,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const successUrl = buildPluginBillingReturnUrl(pluginBilling.website, "success", "subscription", String(name || ""));
+    if (!successUrl) {
+      return NextResponse.json(
+        { error: "A valid WordPress site is required." },
+        { status: HttpStatusCode.BadRequest }
+      );
+    }
+
     // Create checkout using direct API call instead of SDK
     const apiUrl = "https://api.lemonsqueezy.com/v1/checkouts";
     const apiKey = process.env.LEMONSQUEEZY_API_KEY;
@@ -76,7 +74,7 @@ export async function POST(req: NextRequest) {
         type: "checkouts",
         attributes: {
           product_options: {
-            redirect_url: `https://${website}/wp-admin/admin.php?page=whoneedsawriter-dashboard&payment=success&type=subscription&plan=${name}`,
+            redirect_url: successUrl,
           },
           checkout_options: {
             embed: false,
@@ -88,6 +86,8 @@ export async function POST(req: NextRequest) {
             name: user.name as string,
             custom: {
               user_id: user.id.toString(),
+              source: "plugin",
+              website: pluginBilling.website,
             },
           },
           expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
@@ -155,4 +155,4 @@ export async function POST(req: NextRequest) {
       { status: HttpStatusCode.InternalServerError }
     );
   }
-} 
+}

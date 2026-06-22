@@ -2,7 +2,8 @@ import { prismaClient } from "@/prisma/db";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/config/auth";
-import { OpenAI } from "openai";
+import { getPluginGenerationAccessFailure } from "@/libs/plugin-account-access";
+import { spendCredits } from "@/libs/credits";
 
 // Function to get all articles for a user
 async function getAllArticles(userId: string) {
@@ -89,7 +90,13 @@ function getCreditCost(model: string): number {
 export async function POST(request: Request) {
   
   try {
-    const {userId, batchId, textKeywords, model, balance_type, total_keywords, wordLimit, featuredImage, infographics, specialInstructions, externalLinks, references, category, author } = await request.json();
+    const {userId, batchId, textKeywords, model, wordLimit, featuredImage, infographics, specialInstructions, externalLinks, references, category, author } = await request.json();
+    if (!userId || typeof userId !== "string") {
+      return NextResponse.json({ error: "User ID is required" }, { status: 401 });
+    }
+    if (!batchId || typeof batchId !== "string") {
+      return NextResponse.json({ error: "Batch ID is required" }, { status: 400 });
+    }
     if (!textKeywords || typeof textKeywords !== "string") {
       return NextResponse.json({ error: "Invalid keyword" }, { status: 400 });
     }
@@ -97,8 +104,40 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid model" }, { status: 400 });
     }
 
+        const accessFailure = await getPluginGenerationAccessFailure(userId);
+        if (accessFailure) {
+          return NextResponse.json(
+            { error: accessFailure.error, code: accessFailure.code },
+            { status: accessFailure.status }
+          );
+        }
+
         // Split the text into individual keywords
-        const keywords = textKeywords.split(',').filter(keyword => keyword.trim() !== '');
+        const keywords = textKeywords.split(',').map((keyword: string) => keyword.trim()).filter(Boolean);
+        if (keywords.length === 0) {
+          return NextResponse.json({ error: "Invalid keyword" }, { status: 400 });
+        }
+        const creditCostPerArticle = getCreditCost(model || '1a-pro');
+        const totalCreditCost = parseFloat((keywords.length * creditCostPerArticle).toFixed(1));
+        try {
+          await spendCredits({
+            userId,
+            amount: totalCreditCost,
+            idempotencyKey: `plugin_generation_spend:${userId}:${batchId}`,
+            metadata: {
+              batchId,
+              model,
+              keywordCount: keywords.length,
+              source: "plugin",
+            },
+          });
+        } catch (error) {
+          return NextResponse.json(
+            { error: error instanceof Error ? error.message : "Insufficient credits" },
+            { status: 400 }
+          );
+        }
+
         const articles = [];
 
         const categories = (category ?? '').split(',').map((s: string) => s.trim());
@@ -140,35 +179,6 @@ export async function POST(request: Request) {
 
             articles.push(article);
         }
-
-        // Calculate total credit cost based on model and number of keywords
-        const creditCostPerArticle = getCreditCost(model || '1a-pro');
-        const totalCreditCost = parseFloat((total_keywords * creditCostPerArticle).toFixed(1));
-
-        console.log(totalCreditCost);
-        console.log(total_keywords);
-        console.log(creditCostPerArticle);
-        console.log(balance_type);
-
-        // Get current user balance and calculate new balance to avoid floating-point errors
-        const user = await prismaClient.user.findUnique({ where: { id: userId } });
-        if (!user) {
-          return NextResponse.json({ error: "User not found" }, { status: 404 });
-        }
-        
-        const currentBalance = Number(
-          user[balance_type as keyof typeof user] as unknown
-        );
-        const newBalanceRaw = (Number.isFinite(currentBalance) ? currentBalance : 0) - totalCreditCost;
-        const newBalanceRounded = parseFloat(newBalanceRaw.toFixed(1));
-        const newBalance = Object.is(Math.max(0, newBalanceRounded), -0) ? 0 : Math.max(0, newBalanceRounded);
-        
-        await prismaClient.user.update({
-          where: { id: userId },
-          data: {
-            [balance_type]: newBalance,
-          },
-        });
 
         // Respond to the client after all webhooks finish
         return NextResponse.json({ status: 200, articles });

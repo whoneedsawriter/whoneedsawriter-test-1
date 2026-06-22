@@ -1,4 +1,5 @@
-import { prismaClient } from "@/prisma/db";
+import { getPluginAccountAccess } from "@/libs/plugin-account-access";
+import { verifyPluginBillingToken } from "@/libs/plugin-billing-auth";
 import { NextRequest, NextResponse } from "next/server";
 
 type ApiError = { error: string };
@@ -9,8 +10,29 @@ export type PluginUserBalanceResponse = {
   monthyPlan: number;
   lifetimeBalance: number;
   lifetimePlan: number;
+  credits: number;
+  balance_type: string;
   SubscriptionDetails: any;
   SubscriptionPlan: any;
+  access: {
+    status: string;
+    hasGenerationAccess: boolean;
+    trialEligible: boolean;
+    activePlanName: string | null;
+    trialEndsAt: string | null;
+    trialCreditsGranted: number;
+    trialCreditsUsed: number;
+    message: string;
+  };
+  cta: {
+    label: string;
+    kind: string;
+    url: string;
+    trialUrl: string;
+    pricingUrl: string;
+    disabled: boolean;
+  };
+  creditsLoaded: boolean;
 };
 
 export async function GET(
@@ -18,7 +40,11 @@ export async function GET(
 ): Promise<NextResponse<PluginUserBalanceResponse | ApiError>> {
   try {
     const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("id")?.trim();
+    const token = searchParams.get("token")?.trim() || "";
+    const pluginBilling = token ? await verifyPluginBillingToken(token, ["pricing", "trial"]) : null;
+    const userId = pluginBilling?.userId || searchParams.get("id")?.trim();
+    const website = searchParams.get("website")?.trim() || "";
+    const siteSecret = req.headers.get("x-wnaw-site-secret")?.trim() || "";
 
     if (!userId) {
       return NextResponse.json(
@@ -27,41 +53,28 @@ export async function GET(
       );
     }
 
-    const user = await prismaClient.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        freeCredits: true,
-        monthyBalance: true,
-        monthyPlan: true,
-        lifetimeBalance: true,
-        lifetimePlan: true,
-      },
-    });
+    const account = pluginBilling
+      ? await getPluginAccountAccess(userId, pluginBilling.website)
+      : await getPluginAccountAccess(userId, website, siteSecret);
 
-    const SubscriptionPlan = await prismaClient.userPlan.findFirst({
-      where: { userId: userId }
-    });
-    let SubscriptionDetails;
-    if(SubscriptionPlan && SubscriptionPlan.planId !== null){
-        SubscriptionDetails = await prismaClient.subscriptionPlan.findFirst({
-          where: { id : SubscriptionPlan.planId }
-        });
-    }
-
-    if (!user) {
+    if (!account) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     return NextResponse.json(
       {
-        freeCredits: user.freeCredits,
-        monthyBalance: user.monthyBalance,
-        monthyPlan: user.monthyPlan,
-        lifetimeBalance: user.lifetimeBalance,
-        lifetimePlan: user.lifetimePlan,
-        SubscriptionDetails: SubscriptionDetails,
-        SubscriptionPlan: SubscriptionPlan,
+        freeCredits: account.user.freeCredits,
+        monthyBalance: account.user.monthyBalance,
+        monthyPlan: account.user.monthyPlan,
+        lifetimeBalance: account.user.lifetimeBalance,
+        lifetimePlan: account.user.lifetimePlan,
+        credits: account.credits,
+        balance_type: account.balance_type,
+        SubscriptionDetails: account.subscriptionPlan || account.lifetimePlan,
+        SubscriptionPlan: account.userPlan,
+        access: account.access,
+        cta: account.cta,
+        creditsLoaded: account.creditsLoaded,
       },
       { status: 200 }
     );

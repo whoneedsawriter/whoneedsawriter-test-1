@@ -67,4 +67,4 @@ export function isTrialCreditsExhausted(userPlan?: GenerationAccessUserPlan | nu
 }
 
 export const TRIAL_ENDED_UPGRADE_MESSAGE =
-  "Your trial has ended. Upgrade your plan to continue generating articles.";
+  "Your trial credits have been used. Please upgrade your plan to continue.";

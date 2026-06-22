@@ -4,6 +4,7 @@ import {
   verifyPluginConnectToken,
   getPluginConnectSecret,
 } from "@/libs/plugin-connect";
+import { upsertPluginSite } from "@/libs/plugin-billing-auth";
 
 function timingSafeStringEqual(a: string, b: string): boolean {
   try {
@@ -55,6 +56,25 @@ export async function POST(req: Request) {
   const payload = verifyPluginConnectToken(token, secret);
   if (!payload) {
     return NextResponse.json({ error: "invalid_token" }, { status: 401 });
+  }
+
+  const website =
+    body &&
+    typeof body === "object" &&
+    "website" in body &&
+    typeof (body as { website: unknown }).website === "string"
+      ? (body as { website: string }).website
+      : "";
+  const siteSecret =
+    body &&
+    typeof body === "object" &&
+    "siteSecret" in body &&
+    typeof (body as { siteSecret: unknown }).siteSecret === "string"
+      ? (body as { siteSecret: string }).siteSecret
+      : "";
+
+  if (website && siteSecret) {
+    await upsertPluginSite(payload.sub, website, siteSecret);
   }
 
   return NextResponse.json({

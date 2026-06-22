@@ -1,0 +1,10 @@
+.env
+.env.*
+.next
+node_modules
+*.zip
+.plugin-live-test-staging
+.plugin-zip-staging
+.wp-stub
+.tmp-*.php
+Whoneedsawriter

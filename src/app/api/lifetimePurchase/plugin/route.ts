@@ -1,27 +1,28 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { HttpStatusCode } from "axios";
-import { prismaClient } from "@/prisma/db";
 import { stripeClient } from "@/libs/stripe";
+import { verifyPluginBillingToken } from "@/libs/plugin-billing-auth";
+import { buildPluginBillingReturnUrl } from "@/libs/plugin-return-url";
 
 export async function POST(request: Request) {
   console.log("lifetimePurchase stared");
-  const { userId, priceId, name, website } = await request.json();
+  const { priceId, name, billingToken } = await request.json();
 
-  if (!userId) {
+  const pluginBilling = await verifyPluginBillingToken(String(billingToken || ""), ["pricing"]);
+  if (!pluginBilling) {
     return NextResponse.json(
-      { error: "Unauthorized" },
+      { error: "Invalid or expired plugin billing token." },
       { status: HttpStatusCode.Unauthorized }
     );
   }
 
-  const user = await prismaClient.user.findFirst({
-    where: { id: userId },
-  });
-
-  if (!user) {
+  const user = pluginBilling.user;
+  const successUrl = buildPluginBillingReturnUrl(pluginBilling.website, "success", "lifetime", String(name || ""));
+  const cancelUrl = buildPluginBillingReturnUrl(pluginBilling.website, "failed");
+  if (!successUrl || !cancelUrl) {
     return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: HttpStatusCode.Unauthorized }
+      { error: "A valid WordPress site is required." },
+      { status: HttpStatusCode.BadRequest }
     );
   }
 
@@ -31,8 +32,8 @@ try{
     line_items: [{ price: priceId, quantity: 1 }],
     mode: "payment",
     customer_email: user.email as string,
-    success_url: `https://${website}/wp-admin/admin.php?page=whoneedsawriter-dashboard&payment=success&type=lifetime&plan=${name}`, 
-    cancel_url: `https://${website}/wp-admin/admin.php?page=whoneedsawriter-dashboard&payment=failed`,
+    success_url: successUrl,
+    cancel_url: cancelUrl,
   });
   return NextResponse.json({ url: session1.url });
 }catch(error:any){

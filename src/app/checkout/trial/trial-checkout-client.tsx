@@ -21,6 +21,8 @@ type TrialCheckoutClientProps = {
   firstChargeDate: string;
   billingTermsVersion: string;
   stripePublishableKey: string;
+  source?: "app" | "plugin";
+  pluginBillingToken?: string;
 };
 
 type LemonWindow = Window & {
@@ -78,15 +80,19 @@ export default function TrialCheckoutClient({
   firstChargeDate,
   billingTermsVersion,
   stripePublishableKey,
+  source = "app",
+  pluginBillingToken = "",
 }: TrialCheckoutClientProps) {
   const router = useRouter();
   const [accepted, setAccepted] = useState(false);
   const [stripeClientSecret, setStripeClientSecret] = useState("");
+  const [pluginStripeReturnUrl, setPluginStripeReturnUrl] = useState("");
   const [isPreparingStripe, setIsPreparingStripe] = useState(plan.currency === "INR");
   const [isOpeningLemon, setIsOpeningLemon] = useState(false);
   const [setupError, setSetupError] = useState("");
   const preparedStripeRef = useRef(false);
   const provider = plan.currency === "INR" ? "stripe" : "lemon";
+  const isPlugin = source === "plugin";
   const renewalPrice = formatPlanPrice(plan);
   const trialEndLabel = formatDate(trialEndsAt);
   const firstChargeLabel = formatDate(firstChargeDate);
@@ -108,12 +114,13 @@ export default function TrialCheckoutClient({
       }
 
       try {
-        const response = await fetch("/api/checkout/trial/stripe", {
+        const response = await fetch(isPlugin ? "/api/checkout/trial/plugin/stripe" : "/api/checkout/trial/stripe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             planId: plan.id,
             billingTermsVersion,
+            ...(isPlugin && { billingToken: pluginBillingToken }),
           }),
         });
         const data = await response.json();
@@ -122,6 +129,7 @@ export default function TrialCheckoutClient({
           throw new Error(data.error || "Unable to prepare the secure card form.");
         }
 
+        if (data.returnUrl) setPluginStripeReturnUrl(String(data.returnUrl));
         setStripeClientSecret(data.clientSecret);
       } catch (error: any) {
         setSetupError(error.message || "Unable to prepare the secure card form.");
@@ -131,7 +139,7 @@ export default function TrialCheckoutClient({
     }
 
     prepareStripe();
-  }, [billingTermsVersion, plan.id, provider, stripePublishableKey]);
+  }, [billingTermsVersion, isPlugin, plan.id, pluginBillingToken, provider, stripePublishableKey]);
 
   async function openLemonTrial() {
     if (!accepted) {
@@ -141,12 +149,13 @@ export default function TrialCheckoutClient({
 
     setIsOpeningLemon(true);
     try {
-      const response = await fetch("/api/checkout/trial/lemon", {
+      const response = await fetch(isPlugin ? "/api/checkout/trial/plugin/lemon" : "/api/checkout/trial/lemon", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           planId: plan.id,
           billingTermsVersion,
+          ...(isPlugin && { billingToken: pluginBillingToken }),
         }),
       });
       const data = await response.json();
@@ -162,7 +171,11 @@ export default function TrialCheckoutClient({
         eventHandler: (event) => {
           if (event.event === "Checkout.Success") {
             trackFunnelEvent("trial_payment_method_added", { planId: plan.id, provider });
-            router.push(`/dashboard?trial=started&plan=${encodeURIComponent(plan.name)}`);
+            router.push(
+              isPlugin && data.returnUrl
+                ? data.returnUrl
+                : `/dashboard?trial=started&plan=${encodeURIComponent(plan.name)}`
+            );
           }
         },
       });
@@ -239,6 +252,7 @@ export default function TrialCheckoutClient({
                         planId={plan.id}
                         planName={plan.name}
                         provider={provider}
+                        pluginReturnUrl={isPlugin ? pluginStripeReturnUrl : ""}
                       />
                     </Elements>
                   )}
@@ -322,12 +336,14 @@ function StripeTrialForm({
   planId,
   planName,
   provider,
+  pluginReturnUrl = "",
 }: {
   accepted: boolean;
   clientSecret: string;
   planId: number;
   planName: string;
   provider: string;
+  pluginReturnUrl?: string;
 }) {
   const router = useRouter();
   const stripe = useStripe();
@@ -367,7 +383,7 @@ function StripeTrialForm({
     }
 
     trackFunnelEvent("trial_payment_method_added", { planId, provider });
-    router.push(`/dashboard?trial=started&plan=${encodeURIComponent(planName)}`);
+    router.push(pluginReturnUrl || `/dashboard?trial=started&plan=${encodeURIComponent(planName)}`);
   }
 
   return (
